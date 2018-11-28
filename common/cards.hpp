@@ -16,27 +16,27 @@
 namespace godapp {
     using namespace std;
 
-    uint8_t card_suit(uint8_t card) {
+    card_t card_suit(card_t card) {
         return (card / CARDS_PER_SUIT) % NUM_SUITS;
     }
 
-    uint8_t card_value(uint8_t card) {
+    card_t card_value(card_t card) {
         return card % CARDS_PER_SUIT + 1;
     }
 
-    bool is_A(uint8_t card) {
+    bool is_A(card_t card) {
         return card_value(card) == 1;
     }
 
-    bool is_ten(uint8_t card) {
+    bool is_ten(card_t card) {
         return card_value(card) >= 10;
     }
 
-    uint8_t draw_random_card(random& random_gen, const vector<uint8_t>& exclude, int max_number) {
+    card_t draw_random_card(random& random_gen, const vector<card_t>& exclude, int max_number) {
         size_t total_dealt = exclude.size();
-        auto card = (uint8_t) random_gen.generator(max_number - total_dealt);
+        auto card = (card_t) random_gen.generator(max_number - total_dealt);
 
-        for(uint8_t i: exclude) {
+        for(card_t i: exclude) {
             if (card >= i) {
                 card++;
             } else {
@@ -46,7 +46,7 @@ namespace godapp {
         return card;
     }
 
-    string card_suite_str(uint8_t card){
+    string card_suite_str(card_t card){
         switch (card_suit(card)) {
             case CARD_SUIT_SPADE:
                 return "♠";
@@ -59,7 +59,7 @@ namespace godapp {
         }
     }
 
-    string card_value_str(uint8_t card){
+    string card_value_str(card_t card){
         switch (card % CARDS_PER_SUIT) {
             case 0:
                 return "A";
@@ -90,11 +90,11 @@ namespace godapp {
         }
     }
 
-    string card_to_string(uint8_t card) {
+    string card_to_string(card_t card) {
         return card_suite_str(card) + card_value_str(card);
     }
 
-    string cards_to_string(const vector<uint8_t>& cards) {
+    string cards_to_string(const vector<card_t>& cards) {
         string ret;
         size_t len = cards.size();
         for (size_t i=0; i<len; i++) {

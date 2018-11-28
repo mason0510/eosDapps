@@ -3,3 +3,4 @@
 *.wasm
 
 cmake-build-debug
+.idea

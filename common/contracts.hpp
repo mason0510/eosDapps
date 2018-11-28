@@ -10,13 +10,14 @@ namespace godapp {
     using namespace eosio;
 
     //###############    Globals  ######################
-    #define DEFINE_GLOBAL_TABLE(NAME) \
+    #define DEFINE_GLOBAL_TABLE \
     TABLE globalvar { \
         uint64_t id; \
         uint64_t val; \
         uint64_t primary_key() const { return id; }; \
     }; \
-    typedef multi_index<name(#NAME), globalvar> global_index;
+    typedef multi_index<name("globals"), globalvar> global_index; \
+    global_index _globals;
 
     template<name::raw N, typename T>
     void init_globals(multi_index<N, T>& globals, uint64_t start, uint64_t end) {
@@ -31,8 +32,8 @@ namespace godapp {
         }
     }
 
-    template<name::raw N, typename T>
-    void set_global(multi_index<N, T>& globals, uint64_t key, uint64_t value) {
+    template<typename T>
+    void set_global(T& globals, uint64_t key, uint64_t value) {
         auto iter = globals.find(key);
 
         globals.modify(iter, globals.get_code(), [&](auto& a) {
@@ -40,13 +41,13 @@ namespace godapp {
         });
     }
 
-    template<name::raw N, typename T>
-    uint64_t get_global(multi_index<N, T>& globals, uint64_t key) {
+    template<typename T>
+    uint64_t get_global(T& globals, uint64_t key) {
         return globals.get(key, "global value does not exist").val;
     }
 
-    template<name::raw N, typename T, typename Lambda>
-    uint64_t modify_global(multi_index<N, T>& globals, uint64_t key, Lambda&& updater) {
+    template<typename T, typename Lambda>
+    uint64_t modify_global(T& globals, uint64_t key, Lambda&& updater) {
         auto iter = globals.get(key);
         auto result = iter.val;
 
@@ -54,8 +55,8 @@ namespace godapp {
         return result;
     }
 
-    template<name::raw N, typename T>
-    uint64_t increment_global(multi_index<N, T>& globals, uint64_t key) {
+    template<typename T>
+    uint64_t increment_global(T& globals, uint64_t key) {
         auto iter = globals.find(key);
         auto result = iter->val + 1;
 
@@ -65,8 +66,8 @@ namespace godapp {
         return result;
     }
 
-    template<name::raw N, typename T>
-    uint64_t increment_global_mod(multi_index<N, T>& globals, uint64_t key, uint64_t mod) {
+    template<typename T>
+    uint64_t increment_global_mod(T& globals, uint64_t key, uint64_t mod) {
         auto iter = globals.find(key);
         auto result = (iter->val + 1) % mod;
 
@@ -89,7 +90,7 @@ namespace godapp {
         return accounts.get(symbol.code().raw()).balance;
     }
 
-    #define DEFINE_TOKEN_TABLE(NAME) \
+    #define DEFINE_TOKEN_TABLE \
     TABLE token { \
         symbol sym; \
         name contract; \
@@ -103,7 +104,8 @@ namespace godapp {
         uint64_t max; \
         uint64_t primary_key() const { return sym.raw(); }; \
     }; \
-    typedef multi_index<name(#NAME), token> token_index;
+    typedef multi_index<name("tokens"), token> token_index; \
+    token_index _tokens;
 
     template<name::raw N, typename T>
     void init_token(multi_index<N, T>& tokens, symbol sym, name token_contract) {
