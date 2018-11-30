@@ -23,10 +23,10 @@
 #define MAX_BET_FEE                 0.005
 #define NUM_CARDS                   52 * 8
 
-#define RATE_PLAYER_WIN             1
-#define RATE_BANKER_WIN             0.95
-#define RATE_PAIR                   11
-#define RATE_TIE                    8
+#define RATE_PLAYER_WIN             2
+#define RATE_BANKER_WIN             1.95
+#define RATE_PAIR                   12
+#define RATE_TIE                    9
 
 #define BET_BANKER_WIN              1
 #define BET_PLAYER_WIN              2
@@ -106,10 +106,10 @@ namespace godapp {
 		uint8_t status = game_iter->status;
 		switch (status) {
 		    case GAME_STATUS_STANDBY: {
-                eosio_assert(timestamp > game_iter->end_time, "Game resolving, please wait");
+                eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait");
 
                 _games.modify(game_iter, _self, [&](auto &a) {
-                    a.end_time = now() + GAME_LENGTH * 1e6;
+                    a.end_time = now() + GAME_LENGTH;
                     a.status = GAME_STATUS_ACTIVE;
                 });
 
@@ -179,6 +179,20 @@ namespace godapp {
         }
 	}
 
+    void baccarat::hardclose(uint64_t game_id) {
+        require_auth(_self);
+
+        auto idx = _games.get_index<name("byid")>();
+        auto gm_pos = idx.find(game_id);
+
+        uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
+        idx.modify(gm_pos, _self, [&](auto &a) {
+            a.id = next_game_id;
+            a.status = GAME_STATUS_STANDBY;
+            a.end_time = now();
+        });
+	}
+
     void baccarat::reveal(uint64_t game_id) {
         require_auth(_self);
 
@@ -187,7 +201,7 @@ namespace godapp {
         uint32_t timestamp = now();
 
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!");
-        eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp > gm_pos->end_time, "Can not reveal yet");
+        eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp >= gm_pos->end_time, "Can not reveal yet");
 
         vector<card_t> cards, banker_cards, player_cards;
         random random_gen;
@@ -226,23 +240,26 @@ namespace godapp {
             result |= BET_BANKER_PAIR;
         }
 
+        uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
         idx.modify(gm_pos, _self, [&](auto &a) {
+            a.id = next_game_id;
             a.status = GAME_STATUS_STANDBY;
-            a.end_time = timestamp + GAME_RESOLVE_TIME * 1e6;
+            a.end_time = timestamp + GAME_RESOLVE_TIME;
 
             a.player_cards = player_cards;
             a.banker_cards = banker_cards;
         });
 
-        auto bet_iter = _bets.get_index<name("bygameid")>();
+        auto bet_index = _bets.get_index<name("bygameid")>();
         char msg[128];
         sprintf(msg, "[GoDapp] Baccarat game win!");
 
-        for (auto iter = bet_iter.begin(); iter != bet_iter.end();) {
-            uint8_t bet_type = iter->bet_type;
+        for (auto itr = bet_index.begin(); itr != bet_index.end();) {
+            uint8_t bet_type = itr->bet_type;
             if (bet_type | result) {
-                asset payout(iter->bet.amount * payout_rate(bet_type), iter->bet.symbol);
-                INLINE_ACTION_SENDER(eosio::token, transfer)(_self, {_self, name("active")}, {_self, iter->player, payout, msg} );
+                asset payout(itr->bet.amount * payout_rate(bet_type), itr->bet.symbol);
+                INLINE_ACTION_SENDER(eosio::token, transfer)(_self, {_self, name("active")}, {_self, itr->player, payout, msg} );
+                itr = bet_index.erase(itr);
             }
         }
     }

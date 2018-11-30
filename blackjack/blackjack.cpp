@@ -365,7 +365,7 @@ namespace godapp {
 	}
 
 	void blackjack::hardclose(uint64_t id, string reason) {
-		// require_auth(_self);
+		require_auth(_self);
 
 		games_table games(_self, _self.value);
 		eosio_assert(reason.size() <= 256, "reason size must <= 256");

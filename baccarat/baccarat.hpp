@@ -61,13 +61,14 @@ namespace godapp {
         ACTION setglobal(uint64_t key, uint64_t value);
         ACTION transfer(name from, name to, asset quantity, string memo);
         ACTION reveal(uint64_t game_id);
+        ACTION hardclose(uint64_t game_id);
 
     private:
         void bet(name player, name referer, uint64_t game_id, uint8_t bet_type, asset amount);
         void init_game(symbol sym);
     };
 
-    EOSIO_ABI_EX(baccarat, (init)(reveal)(transfer)(setglobal))
+    EOSIO_ABI_EX(baccarat, (init)(reveal)(transfer)(setglobal)(hardclose))
 }
 
 
