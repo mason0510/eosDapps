@@ -17,42 +17,38 @@ namespace godapp {
     public:
         using contract::contract;
 
-        DEFINE_GLOBAL_TABLE(globals)
-        DEFINE_TOKEN_TABLE(tokens)
+        DEFINE_GLOBAL_TABLE
 
-        TABLE bet
-        {
+        TABLE bet {
             uint64_t id;
             uint64_t bet_id;
-            name contract;
-            name bettor;
-            name inviter;
-            uint64_t bet_amt;
+            symbol sym;
+            name player;
+            name referer;
+            uint64_t bet;
             vector<asset> payout;
             uint8_t roll_type;
-            uint64_t roll_border;
+            uint64_t bet_value;
             uint64_t roll_value;
             capi_checksum256 seed;
             time_point_sec time;
+
             uint64_t primary_key() const { return id; };
         };
-        typedef eosio::multi_index<name("activebets"), bet> bet_index;
+        typedef eosio::multi_index<name("bets"), bet> bet_index;
 
         ACTION init();
-        ACTION setactive(bool active);
-        ACTION start(name bettor, asset bet_asset, uint8_t roll_type, uint8_t bet_number, name referrer);
-        ACTION resolve(name bettor, asset bet_asset, uint8_t roll_type, uint8_t bet_number, name referrer);
-        ACTION receipt(uint64_t bet_id, name bettor, asset bet_amt, vector<asset> payout_list,
-                capi_checksum256 seed, uint8_t roll_type, uint64_t roll_border, uint64_t roll_value);
-        ACTION transfer(name from, name to, asset quantity, string memo);
+        ACTION play(name player, asset bet, string memo);
+        ACTION resolve(name player, asset bet_asset, uint8_t roll_type, uint8_t bet_number, name referrer);
 
-        dice(name receiver, name code, datastream<const char*> ds): contract(receiver, code, ds) {}
-    private:
-        void save_bet(
-                uint64_t bet_id, name bettor, name inviter,
-                asset bet_quantity, const vector<asset>& payout_list, uint8_t roll_type,
-                uint64_t roll_border, uint64_t roll_value, capi_checksum256 seed, time_point_sec time);
+        ACTION receipt(uint64_t bet_id, name player, asset bet, vector<asset> payout_list,
+                       capi_checksum256 seed, uint8_t roll_type, uint64_t bet_value, uint64_t roll_value);
+
+        dice(name receiver, name code, datastream<const char *> ds) :
+        contract(receiver, code, ds),
+        _globals(_self, _self.value) {
+        }
     };
 
-    EOSIO_ABI_EX(dice, (init)(setactive)(start)(resolve)(receipt)(transfer))
+    EOSIO_ABI_EX(dice, (init)(play)(resolve)(receipt))
 }

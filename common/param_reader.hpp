@@ -26,18 +26,18 @@ namespace godapp {
             return _params.substr(_last_pos, _params.length() - _last_pos);
         }
 
-        name get_referrer(name from, name default_referrer = TEAM_ACCOUNT) {
-            string referrer_name = next_param("referrer is missing");
-            if (referrer_name.empty()) {
-                return default_referrer;
+        name get_referer(name from, name default_referer = TEAM_ACCOUNT) {
+            string referer_name = next_param("referrer is missing");
+            if (referer_name.empty()) {
+                return default_referer;
             } else {
-                name referrer = name(referrer_name);
-                if (from == referrer) {
-                    return default_referrer;
+                name referer = name(referer_name);
+                if (from == referer) {
+                    return default_referer;
                 }
 
-                eosio_assert(is_account(referrer), "referrer does not exist");
-                return referrer;
+                eosio_assert(is_account(referer), "referrer does not exist");
+                return referer;
             }
         }
 

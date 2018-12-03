@@ -1,3 +1,5 @@
+#define DEFINE_DISPATCHER 1
+
 #include "../house/house.hpp"
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
@@ -107,6 +109,26 @@ namespace godapp {
             r_out.delay_sec = 0;
             r_out.send(from.value, _self);
         }
+    }
+
+    void house::pay(name game, name to, asset quantity, string memo, name referer) {
+        player_index game_player(_self, game.value);
+        token_index game_token(_self, game.value);
+
+        auto player_iter = game_player.find(to.value);
+        eosio_assert(player_iter != game_player.end(), "Player does not exist");
+        game_player.modify(player_iter, _self, [&](auto &a) {
+            a.out += quantity.amount;
+        });
+
+        auto token_iter = game_token.find(quantity.symbol.raw());
+        eosio_assert(token_iter != game_token.end(), "Token not supported");
+        game_token.modify(token_iter, _self, [&](auto &a) {
+            a.out += quantity.amount;
+            a.balance -= quantity.amount;
+        });
+
+        INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, quantity, memo} );
     }
 
     void house::updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance) {
