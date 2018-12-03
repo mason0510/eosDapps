@@ -22,6 +22,10 @@ namespace godapp {
             return result;
         }
 
+        string rest() {
+            return _params.substr(_last_pos, _params.length() - _last_pos);
+        }
+
         name get_referrer(name from, name default_referrer = TEAM_ACCOUNT) {
             string referrer_name = next_param("referrer is missing");
             if (referrer_name.empty()) {

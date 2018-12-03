@@ -1,9 +1,7 @@
 #pragma once
 
-#define DICE_ACCOUNT name("codemonkeyte")
-#define TEAM_ACCOUNT name("codemonkeyte")
-
-#define BLACK_JACK_ACCOUNT name("godappblackj")
+#define HOUSE_ACCOUNT name("godapphouse1")
+#define TEAM_ACCOUNT name("godapphouse1")
 #define EOS_TOKEN_CONTRACT name("eosio.token")
 
 #define EOS_SYMBOL symbol("EOS", 4)

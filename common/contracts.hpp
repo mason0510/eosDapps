@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosiolib/eosio.hpp>
+#include <eosiolib/transaction.hpp>
 #include "./constants.hpp"
 
 #include <string>

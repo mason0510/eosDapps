@@ -7,7 +7,6 @@
 #include <eosiolib/serialize.hpp>
 #include <eosiolib/multi_index.hpp>
 #include <eosiolib/privileged.h>
-#include <eosiolib/transaction.hpp>
 #include <eosiolib/crypto.h>
 #include <eosiolib/time.hpp>
 #include <eosiolib/asset.hpp>
@@ -126,7 +125,7 @@ namespace godapp {
 
         INLINE_ACTION_SENDER(dice, receipt)(_self, {_self, name("active")}, {bet_id, bettor, bet_asset, payout_list, seed, roll_type, bet_number, roll_value});
 
-        if (referrer != DICE_ACCOUNT && is_account(referrer)) {
+        if (referrer != HOUSE_ACCOUNT && is_account(referrer)) {
             asset referral_reward = asset((uint64_t) (bet_asset.amount * REFERRAL_BONUS), bet_asset.symbol);
             char str[128];
             sprintf(str, "Referral reward from GO DAPP! Player: %s, Bet ID: %lld", eosio::name{bettor}.to_string().c_str(), bet_id);
