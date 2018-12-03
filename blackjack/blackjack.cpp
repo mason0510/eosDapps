@@ -1,4 +1,6 @@
 #include "blackjack.hpp"
+
+#define card_t uint8_t
 #include "../common/cards.hpp"
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
@@ -44,17 +46,20 @@
 #define GAME_RESULT_PUSH            4
 
 namespace godapp {
-	blackjack::blackjack(name receiver, name code, datastream<const char*> ds): contract(receiver, code, ds) {
+	blackjack::blackjack(name receiver, name code, datastream<const char*> ds):
+	contract(receiver, code, ds),
+	_globals(_self, _self.value),
+	_tokens(_self, _self.value),
+	_histories(_self, _self.value),
+	_games(_self, _self.value)
+	{
 	}
 
 	void blackjack::init() {
         require_auth(_self);
 
-        global_index globals(_self, _self.value);
-        init_globals(globals, G_ID_START, G_ID_END);
-
-        token_index tokens(_self, _self.value);
-        init_token(tokens, EOS_SYMBOL, EOS_TOKEN_CONTRACT);
+        init_globals(_globals, G_ID_START, G_ID_END);
+        init_token(_tokens, EOS_SYMBOL, EOS_TOKEN_CONTRACT);
 	}
 
 	const char* result_string(uint8_t result) {
@@ -115,17 +120,13 @@ namespace godapp {
     void blackjack::setglobal(uint64_t key, uint64_t value) {
         require_auth(_self);
 
-        global_index globals(_self, _self.value);
-        set_global(globals, key, value);
+        set_global(_globals, key, value);
     }
 
 	void blackjack::transfer(name from, name to, asset quantity, string memo) {
         if (check_transfer(this, from, to, quantity, memo)) {
-            global_index globals(_self, _self.value);
-            eosio_assert(get_global(globals, G_ID_ACTIVE), "game is not active!");
-
-            token_index tokens(_self, _self.value);
-            auto token = tokens.get(quantity.symbol.raw(), "game do not support the token");
+            eosio_assert(get_global(_globals, G_ID_ACTIVE), "game is not active!");
+            auto token = _tokens.get(quantity.symbol.raw(), "game do not support the token");
 
             auto balance = get_token_balance(_self, quantity.symbol);
             uint64_t max_bet = balance.amount * MAX_BET_FEE;
@@ -146,14 +147,12 @@ namespace godapp {
     }
 
 	void blackjack::new_game(name player, asset& bet, name referer) {
-		games_table games(_self, _self.value);
-		auto pos = games.find(player.value);
-		eosio_assert(pos == games.end() || pos->status == GAME_STATUS_CLOSED , "your last game is in progress!");
+		auto pos = _games.find(player.value);
+		eosio_assert(pos == _games.end() || pos->status == GAME_STATUS_CLOSED , "your last game is in progress!");
 
-        global_index globals(_self, _self.value);
 		game_item gm;
         gm.player  = player;
-        gm.id = increment_global(globals, G_ID_GAME_ID);
+        gm.id = increment_global(_globals, G_ID_GAME_ID);
         gm.start_time = current_time();
         gm.close_time = 0;
         gm.referal = referer;
@@ -161,14 +160,13 @@ namespace godapp {
         gm.insured = false;
         gm.status  = GAME_STATUS_ACTIVE;
 
-		table_upsert(games, _self, player.value, [&](auto& info) {
+		table_upsert(_games, _self, player.value, [&](auto& info) {
             info = gm;
 		});
 
 		if (bet.symbol.code().raw() == EOS_SYMBOL.code().raw()) {
-            token_index tokens(_self, _self.value);
-            auto token_pos = tokens.find(bet.symbol.raw());
-            tokens.modify(token_pos, _self, [&](auto& info) {
+            auto token_pos = _tokens.find(bet.symbol.raw());
+            _tokens.modify(token_pos, _self, [&](auto& info) {
                 info.in += bet.amount;
                 info.play_times += 1;
             });
@@ -183,8 +181,7 @@ namespace godapp {
 	void blackjack::deal(uint64_t id, uint8_t action) {
 		require_auth(_self);
 
-        games_table games(_self, _self.value);
-		auto idx = games.get_index<name("byid")>();
+		auto idx = _games.get_index<name("byid")>();
 		auto gm_pos = idx.find(id);
 		eosio_assert(gm_pos != idx.end() && gm_pos->id == id, "deal: game id does't exist!");
 		auto gm = *gm_pos;
@@ -257,8 +254,7 @@ namespace godapp {
             require_auth(player);
         }
 
-		games_table games(_self, _self.value);
-		auto game = games.get(player.value, "you have no game in progress!");
+		auto game = _games.get(player.value, "you have no game in progress!");
 		eosio_assert(game.status == GAME_STATUS_ACTIVE, "Your game is not active!");
 
 		transaction deal_trx;
@@ -270,21 +266,17 @@ namespace godapp {
 	void blackjack::close(uint64_t id) {
 		require_auth(_self);
 
-		global_index globals(_self, _self.value);
 		random random_gen;
 		auto ct = current_time();
-		games_table games(_self, _self.value);
 
-		auto game_iter = games.get_index<name("byid")>();
+		auto game_iter = _games.get_index<name("byid")>();
 		auto gm_pos = game_iter.find(id);
 		eosio_assert(gm_pos != game_iter.end() && gm_pos->id == id, "game id doesn't exist!");
 		auto gm = *gm_pos;
 
 		vector<asset> vec_payout;
 
-		if (gm.status != GAME_STATUS_STOOD) {
-		    gm.result = GAME_RESULT_SURRENDER;
-
+		if (gm.status != GAME_STATUS_STOOD || gm.result == GAME_RESULT_SURRENDER) {
             vec_payout.push_back(gm.bet / 2);
 		} else {
             auto player_points = cal_points(gm.player_cards);
@@ -327,11 +319,10 @@ namespace godapp {
 			info = gm;
 		});
 
-		token_index tokens(_self, _self.value);
-		auto token_pos = tokens.find(gm.bet.symbol.raw());
+		auto token_pos = _tokens.find(gm.bet.symbol.raw());
 		auto payout = asset_from_vec(vec_payout, gm.bet.symbol);
 
-        tokens.modify(token_pos, _self, [&](auto& info) {
+        _tokens.modify(token_pos, _self, [&](auto& info) {
             info.out += payout.amount;
         });
 
@@ -346,9 +337,8 @@ namespace godapp {
         SEND_INLINE_ACTION( *this, receipt, {_self, name("active")},
 		        make_tuple(gm, cards_to_string(gm.banker_cards), cards_to_string(gm.player_cards), "normal close") );
 
-		uint64_t history_index = increment_global_mod(globals, G_ID_HISTORY_INDEX, GAME_MAX_HISTORY_SIZE);
-		history_table history(_self, _self.value);
-		table_upsert(history, _self, history_index, [&](auto& info) {
+		uint64_t history_index = increment_global_mod(_globals, G_ID_HISTORY_INDEX, GAME_MAX_HISTORY_SIZE);
+		table_upsert(_histories, _self, history_index, [&](auto& info) {
             info.id = history_index;
             info.close_time = gm.close_time;
 
@@ -367,10 +357,9 @@ namespace godapp {
 	void blackjack::hardclose(uint64_t id, string reason) {
 		require_auth(_self);
 
-		games_table games(_self, _self.value);
 		eosio_assert(reason.size() <= 256, "reason size must <= 256");
 
-		auto idx = games.get_index<name("byid")>();
+		auto idx = _games.get_index<name("byid")>();
 		auto gm_pos = idx.find(id);
 
 		eosio_assert(gm_pos != idx.end() && gm_pos->id == id, "game id doesn't exist!");
@@ -382,8 +371,7 @@ namespace godapp {
 
     void blackjack::cleargames(uint32_t num) {
 		require_auth(_self);
-		games_table games(_self, _self.value);
-		auto idx = games.get_index<name("bytime")>();
+		auto idx = _games.get_index<name("bytime")>();
 		auto ct = current_time();
 		uint32_t count = 0;
 		for (auto itr=idx.begin(); itr!=idx.end() && count < num; count++) {

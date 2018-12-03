@@ -19,8 +19,8 @@ namespace godapp {
     typedef multi_index<name("globals"), globalvar> global_index; \
     global_index _globals;
 
-    template<name::raw N, typename T>
-    void init_globals(multi_index<N, T>& globals, uint64_t start, uint64_t end) {
+    template<typename T>
+    void init_globals(T& globals, uint64_t start, uint64_t end) {
         for (uint64_t i=start; i<=end; i++) {
             auto iter = globals.find(i);
             if (iter == globals.end()) {
@@ -107,8 +107,8 @@ namespace godapp {
     typedef multi_index<name("tokens"), token> token_index; \
     token_index _tokens;
 
-    template<name::raw N, typename T>
-    void init_token(multi_index<N, T>& tokens, symbol sym, name token_contract) {
+    template<typename T>
+    void init_token(T& tokens, symbol sym, name token_contract) {
         auto iter = tokens.find(sym.raw());
         if (iter == tokens.end()) {
             tokens.emplace(tokens.get_code(), [&](auto &a) {

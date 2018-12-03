@@ -16,8 +16,8 @@ namespace godapp {
     CONTRACT blackjack: public contract {
         public:
 
-        DEFINE_GLOBAL_TABLE(globals)
-        DEFINE_TOKEN_TABLE(tokens)
+        DEFINE_GLOBAL_TABLE
+        DEFINE_TOKEN_TABLE
 
         TABLE history_item {
             uint64_t id;
@@ -36,6 +36,7 @@ namespace godapp {
             uint64_t primary_key()const { return id; }
         };
         typedef multi_index<name("history"), history_item> history_table;
+        history_table _histories;
 
         TABLE game_item {
             uint64_t id;
@@ -64,6 +65,7 @@ namespace godapp {
             indexed_by< name("bystatus"), const_mem_fun<game_item, uint64_t, &game_item::bystatus> >,
             indexed_by< name("bytime"), const_mem_fun<game_item, uint64_t, &game_item::bytime> >
         > games_table;
+        games_table _games;
 
         blackjack(name receiver, name code, datastream<const char*> ds);
 
