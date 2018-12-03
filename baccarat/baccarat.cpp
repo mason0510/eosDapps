@@ -256,11 +256,11 @@ namespace godapp {
 
         for (auto itr = bet_index.begin(); itr != bet_index.end();) {
             uint8_t bet_type = itr->bet_type;
-            if (bet_type | result) {
+            if (bet_type & result) {
                 asset payout(itr->bet.amount * payout_rate(bet_type), itr->bet.symbol);
                 INLINE_ACTION_SENDER(eosio::token, transfer)(_self, {_self, name("active")}, {_self, itr->player, payout, msg} );
-                itr = bet_index.erase(itr);
             }
+            itr = bet_index.erase(itr);
         }
     }
 };
