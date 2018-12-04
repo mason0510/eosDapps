@@ -39,7 +39,7 @@ using namespace eosio;
 
 namespace godapp {
     void dice::init() {
-        require_auth(_self);
+        require_auth(TEAM_ACCOUNT);
         init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
     }
 
@@ -79,7 +79,6 @@ namespace godapp {
         capi_checksum256 seed = random_gen.get_seed();
 
         uint64_t bet_id = increment_global(_globals, GLOBAL_ID_BET);
-        vector<asset> payout_list;
         asset payout;
 
         uint32_t _now = now();
@@ -92,12 +91,9 @@ namespace godapp {
             char str[128];
             sprintf(str, "Bet id: %lld. You win! ", bet_id);
             INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, player, payout, string(str), referer} );
-        }
-        else {
+        } else {
             payout = asset(0, bet_asset.symbol);
         }
-
-        payout_list.push_back(payout);
 
         eosio::time_point_sec time = eosio::time_point_sec( _now );
 
@@ -110,8 +106,10 @@ namespace godapp {
             a.player = player;
             a.referer = referer;
 
+            a.sym = bet_asset.symbol;
             a.bet = (uint64_t) bet_asset.amount;
-            a.payout = payout_list;
+            a.payout = (uint64_t) payout.amount;
+
             a.roll_type = roll_type;
             a.bet_value = bet_number;
             a.roll_value = roll_value;
@@ -119,10 +117,10 @@ namespace godapp {
             a.time = time;
         });
 
-        INLINE_ACTION_SENDER(dice, receipt)(_self, {_self, name("active")}, {bet_id, player, bet_asset, payout_list, seed, roll_type, bet_number, roll_value});
+        INLINE_ACTION_SENDER(dice, receipt)(_self, {_self, name("active")}, {bet_id, player, bet_asset, payout, seed, roll_type, bet_number, roll_value});
     }
 
-    void dice::receipt(uint64_t bet_id, name player, asset bet, vector<asset> payout_list,
+    void dice::receipt(uint64_t bet_id, name player, asset bet, asset payout,
             capi_checksum256 seed, uint8_t roll_type, uint64_t bet_value, uint64_t roll_value) {
         require_auth(_self);
         require_recipient( player );

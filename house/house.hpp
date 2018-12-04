@@ -13,7 +13,7 @@ namespace godapp {
     using namespace std;
     using namespace eosio;
 
-    class house: public contract {
+    CONTRACT house: public contract {
     public:
         TABLE game {
             name name;
@@ -40,7 +40,6 @@ namespace godapp {
         };
         typedef multi_index<name("tokens"), token> token_index;
 
-
         TABLE player {
             name name;
 
@@ -54,7 +53,7 @@ namespace godapp {
             uint64_t primary_key() const { return name.value; };
             uint64_t byeventin()const {return event_in;}
         };
-        typedef multi_index<name("player"), player,
+        typedef multi_index<name("players"), player,
                 indexed_by< name("byeventin"), const_mem_fun<player, uint64_t, &player::byeventin> >
         > player_index;
 
@@ -62,12 +61,13 @@ namespace godapp {
         }
 
         ACTION addgame(name game);
+        ACTION setactive(name game, bool active);
         ACTION transfer(name from, name to, asset quantity, string memo);
         ACTION pay(name game, name to, asset quantity, string memo, name referer);
-        ACTION updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t risk_line);
+        ACTION updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance);
     };
 
 #ifdef DEFINE_DISPATCHER
-    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(pay))
+    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(pay)(setactive))
 #endif
 }
