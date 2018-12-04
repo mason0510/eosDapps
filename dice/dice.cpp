@@ -56,7 +56,7 @@ namespace godapp {
         r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, _self, name("resolve"),
                 make_tuple(player, bet, roll_type, bet_number, referer));
         r_out.delay_sec = 1;
-        r_out.send(_self.value, _self);
+        r_out.send(_self.value, HOUSE_ACCOUNT);
     }
 
     int64_t get_bet_reward(uint8_t roll_type, uint8_t bet_number, int64_t amount){
@@ -90,7 +90,7 @@ namespace godapp {
 
             char str[128];
             sprintf(str, "Bet id: %lld. You win! ", bet_id);
-            INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, player, payout, string(str), referer} );
+            INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, player, bet_asset, payout, string(str), referer} );
         } else {
             payout = asset(0, bet_asset.symbol);
         }

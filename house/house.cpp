@@ -131,25 +131,25 @@ namespace godapp {
         }
     }
 
-    void house::pay(name game, name to, asset quantity, string memo, name referer) {
+    void house::pay(name game, name to, asset bet, asset payout, string memo, name referer) {
         player_index game_player(_self, game.value);
         token_index game_token(_self, game.value);
 
         auto player_iter = game_player.find(to.value);
         eosio_assert(player_iter != game_player.end(), "Player does not exist");
         game_player.modify(player_iter, _self, [&](auto &a) {
-            a.out += quantity.amount;
+            a.out += payout.amount;
         });
 
-        auto token_iter = game_token.find(quantity.symbol.raw());
+        auto token_iter = game_token.find(payout.symbol.raw());
         eosio_assert(token_iter != game_token.end(), "Token not supported");
-        eosio_assert(token_iter->balance > quantity.amount, "token balance depleted");
+        eosio_assert(token_iter->balance > payout.amount, "token balance depleted");
         game_token.modify(token_iter, _self, [&](auto &a) {
-            a.out += quantity.amount;
-            a.balance -= quantity.amount;
+            a.out += payout.amount;
+            a.balance -= payout.amount;
         });
 
-        INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, quantity, memo} );
+        INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, payout, memo} );
     }
 
     void house::updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance) {

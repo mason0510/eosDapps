@@ -63,7 +63,7 @@ namespace godapp {
         ACTION addgame(name game);
         ACTION setactive(name game, bool active);
         ACTION transfer(name from, name to, asset quantity, string memo);
-        ACTION pay(name game, name to, asset quantity, string memo, name referer);
+        ACTION pay(name game, name to, asset bet, asset payout, string memo, name referer);
         ACTION updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance);
     };
 
