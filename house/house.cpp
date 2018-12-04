@@ -35,7 +35,7 @@ namespace godapp {
 
         eosio::transaction r_out;
         auto t_data = make_tuple();
-        r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, _self, name("init"), t_data);
+        r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, game, name("init"), t_data);
         r_out.delay_sec = 0;
         r_out.send(_self.value, _self);
     }
