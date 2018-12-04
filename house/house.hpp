@@ -17,11 +17,15 @@ namespace godapp {
     public:
         TABLE game {
             name name;
+            uint64_t id;
             bool active;
 
             uint64_t primary_key() const { return name.value; };
+            uint64_t by_id() const { return id; };
         };
-        typedef multi_index<name("games"), game> game_index;
+        typedef multi_index<name("game"), game,
+                indexed_by< name("byid"), const_mem_fun<game, uint64_t, &game::by_id> >
+        > game_index;
 
 
         TABLE token {
@@ -60,7 +64,7 @@ namespace godapp {
         house(name receiver, name code, datastream<const char *> ds): contract(receiver, code, ds) {
         }
 
-        ACTION addgame(name game);
+        ACTION addgame(name game, uint64_t id);
         ACTION setactive(name game, bool active);
         ACTION transfer(name from, name to, asset quantity, string memo);
         ACTION pay(name game, name to, asset bet, asset payout, string memo, name referer);

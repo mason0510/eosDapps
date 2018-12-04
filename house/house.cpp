@@ -9,7 +9,7 @@
 #define EVENT_LENGTH                86400
 
 namespace godapp {
-    void house::addgame(name game) {
+    void house::addgame(name game, uint64_t id) {
         require_auth(_self);
 
         eosio_assert(is_account(game), "must be an eos account");
@@ -19,18 +19,22 @@ namespace godapp {
         if (iter == games.end()) {
             games.emplace(_self, [&](auto &a) {
                 a.name = game;
+                a.id = id;
                 a.active = true;
             });
 
             token_index game_token(_self, game.value);
-            game_token.emplace(_self, [&](auto &a) {
-                a.sym = EOS_SYMBOL;
-                a.contract = EOS_TOKEN_CONTRACT;
+            auto token_iter = game_token.find(EOS_SYMBOL.raw());
+            if (token_iter == game_token.end()) {
+                game_token.emplace(_self, [&](auto &a) {
+                    a.sym = EOS_SYMBOL;
+                    a.contract = EOS_TOKEN_CONTRACT;
 
-                a.min = 1000;
-                a.max = 500000;
-                a.balance = 0;
-            });
+                    a.min = 1000;
+                    a.max = 500000;
+                    a.balance = 0;
+                });
+            }
         }
 
         eosio::transaction r_out;
@@ -81,14 +85,13 @@ namespace godapp {
                 a.balance += quantity.amount;
             });
         } else {
+            auto index = (uint8_t) atoi(target.c_str());
             game_index games(_self, _self.value);
-            name game_name = name(target);
-            uint64_t game_code = game_name.value;
-
-            auto game = games.get(game_code, "Game does not exist");
+            auto idx = games.get_index<name("byid")>();
+            auto game = idx.get(index, "Game does not exist");
             eosio_assert(game.active, "game is not active");
 
-            token_index game_token(_self, game_code);
+            token_index game_token(_self, game.name.value);
             auto token_iter = game_token.find(quantity.symbol.raw());
             eosio_assert(token_iter != game_token.end(), "token is not supported");
             eosio_assert(quantity.amount >= token_iter->min && quantity.amount <= token_iter->max, "Invalid amount");
@@ -98,7 +101,7 @@ namespace godapp {
                 a.play_times += 1;
             });
 
-            player_index game_player(_self, game_code);
+            player_index game_player(_self, game.name.value);
             auto player_iter = game_player.find(from.value);
             if (player_iter == game_player.end()) {
                 game_player.emplace(_self, [&](auto &a) {
@@ -125,7 +128,7 @@ namespace godapp {
 
             eosio::transaction r_out;
             auto t_data = make_tuple(from, quantity, reader.rest());
-            r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, game_name, name("play"), t_data);
+            r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, game.name, name("play"), t_data);
             r_out.delay_sec = 0;
             r_out.send(from.value, _self);
         }
