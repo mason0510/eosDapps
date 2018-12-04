@@ -5,6 +5,7 @@
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/eosio.token.hpp"
+#include "../house/house.hpp"
 #include <eosiolib/print.hpp>
 
 #define G_ID_START                  101
@@ -14,20 +15,14 @@
 #define G_ID_HISTORY_INDEX          103
 #define G_ID_END                    103
 
-#define PLAYER_TOKEN_FEE            8
-#define INVITER_TOKEN_FEE           1
-#define TEAM_TOKEN_FEE              1
-
 #define GAME_MAX_TIME               1200*1e6
 #define GAME_MAX_HISTORY_SIZE       50
 #define GAME_MAX_POINTS             21
 
-#define GAME_STATUS_UNKNOWN         0
 #define GAME_STATUS_ACTIVE          1
 #define GAME_STATUS_STOOD           2
 #define GAME_STATUS_CLOSED          3
 
-#define MAX_BET_FEE                 0.005
 #define NUM_CARDS                   104
 #define BANKER_STAND_POINT          17
 #define MAX_CARD_VALUE              10
@@ -39,7 +34,6 @@
 #define PLAYER_ACTION_STAND         4
 #define PLAYER_ACTION_SURRENDER     5
 
-#define GAME_RESULT_UNKNOWN         0
 #define GAME_RESULT_SURRENDER       1
 #define GAME_RESULT_WIN             2
 #define GAME_RESULT_LOSE            3
@@ -49,17 +43,13 @@ namespace godapp {
 	blackjack::blackjack(name receiver, name code, datastream<const char*> ds):
 	contract(receiver, code, ds),
 	_globals(_self, _self.value),
-	_tokens(_self, _self.value),
-	_histories(_self, _self.value),
-	_games(_self, _self.value)
-	{
+	_results(_self, _self.value),
+	_games(_self, _self.value) {
 	}
 
 	void blackjack::init() {
-        require_auth(_self);
-
+        require_auth(TEAM_ACCOUNT);
         init_globals(_globals, G_ID_START, G_ID_END);
-        init_token(_tokens, EOS_SYMBOL, EOS_TOKEN_CONTRACT);
 	}
 
 	const char* result_string(uint8_t result) {
@@ -108,41 +98,20 @@ namespace godapp {
         return draw_random_card(random_gen, cards, NUM_CARDS);
 	}
 
-	asset blackjack::asset_from_vec(const vector<asset>& vec, symbol sym) const {
-		for (auto asset : vec) {
-			if (asset.symbol == sym) {
-				return asset;
-			}
-		}
-		return {0, sym};
-	}
-
     void blackjack::setglobal(uint64_t key, uint64_t value) {
         require_auth(_self);
-
         set_global(_globals, key, value);
     }
 
-	void blackjack::transfer(name from, name to, asset quantity, string memo) {
-        if (check_transfer(this, from, to, quantity, memo)) {
-            eosio_assert(get_global(_globals, G_ID_ACTIVE), "game is not active!");
-            auto token = _tokens.get(quantity.symbol.raw(), "game do not support the token");
+	void blackjack::play(name player, asset bet, string memo){
+        param_reader reader(memo);
+        string action_name = reader.next_param("action is missing");
+        name referrer = reader.get_referer(player);
 
-            auto balance = get_token_balance(_self, quantity.symbol);
-            uint64_t max_bet = balance.amount * MAX_BET_FEE;
-
-            param_reader reader(memo);
-            string action_name = reader.next_param("action is missing");
-            name referrer = reader.get_referrer(from);
-
-            if (action_name == "new") {
-                eosio_assert(quantity.amount >= token.min, "can't less than min bet asset");
-                eosio_assert(quantity.amount <= max_bet, "can't larger than max bet asset");
-
-                new_game(from, quantity, referrer);
-            } else {
-                eosio_assert(false, "unkown action to play");
-            }
+        if (action_name == "new") {
+            new_game(player, bet, referrer);
+        } else {
+            eosio_assert(false, "unknown action to play");
         }
     }
 
@@ -155,7 +124,7 @@ namespace godapp {
         gm.id = increment_global(_globals, G_ID_GAME_ID);
         gm.start_time = current_time();
         gm.close_time = 0;
-        gm.referal = referer;
+        gm.referer = referer;
         gm.bet     = bet;
         gm.insured = false;
         gm.status  = GAME_STATUS_ACTIVE;
@@ -164,18 +133,7 @@ namespace godapp {
             info = gm;
 		});
 
-		if (bet.symbol.code().raw() == EOS_SYMBOL.code().raw()) {
-            auto token_pos = _tokens.find(bet.symbol.raw());
-            _tokens.modify(token_pos, _self, [&](auto& info) {
-                info.in += bet.amount;
-                info.play_times += 1;
-            });
-		}
-
-        transaction deal_trx;
-        deal_trx.actions.emplace_back(permission_level{ _self, name("active") }, _self, name("playeraction"), make_tuple(player, PLAYER_ACTION_NEW));
-        deal_trx.delay_sec = 0;
-        deal_trx.send(player.value, _self);
+        SEND_INLINE_ACTION(*this, playeraction, {_self, name("active")}, make_tuple(player, PLAYER_ACTION_NEW) );
 	}
 
 	void blackjack::deal(uint64_t id, uint8_t action) {
@@ -240,10 +198,7 @@ namespace godapp {
         });
 
         if (gm.status == GAME_STATUS_STOOD) {
-            transaction trx;
-            trx.actions.emplace_back(permission_level{ _self, name("active") }, _self, name("close"), gm.id);
-            trx.delay_sec = 0;
-            trx.send(gm.player.value, _self);
+            SEND_INLINE_ACTION(*this, close, {_self, name("active")}, make_tuple(gm.id) );
         }
 	}
 
@@ -259,7 +214,7 @@ namespace godapp {
 
 		transaction deal_trx;
 		deal_trx.actions.emplace_back(permission_level{ _self, name("active") }, _self, name("deal"), make_tuple(game.id, action));
-		deal_trx.delay_sec = 0;
+		deal_trx.delay_sec = 1;
 		deal_trx.send(player.value, _self);
 	}
 
@@ -274,23 +229,23 @@ namespace godapp {
 		eosio_assert(gm_pos != game_iter.end() && gm_pos->id == id, "game id doesn't exist!");
 		auto gm = *gm_pos;
 
-		vector<asset> vec_payout;
+		asset payout;
 
 		if (gm.status != GAME_STATUS_STOOD || gm.result == GAME_RESULT_SURRENDER) {
-            vec_payout.push_back(gm.bet / 2);
+            payout = gm.bet / 2;
 		} else {
             auto player_points = cal_points(gm.player_cards);
             if (player_points > GAME_MAX_POINTS) {
-                vec_payout.push_back(asset(0, gm.bet.symbol));
+                payout = asset(0, gm.bet.symbol);
                 gm.result = GAME_RESULT_LOSE;
             } else if (player_points == GAME_MAX_POINTS && gm.player_cards.size() == 2 ) {
                 // player blackjack
                 gm.banker_cards.push_back(random_card(random_gen, gm));
                 if (cal_points(gm.banker_cards) == GAME_MAX_POINTS) {
-                    vec_payout.push_back(gm.bet);
+                    payout = gm.bet;
                     gm.result = GAME_RESULT_PUSH;
                 } else {
-                    vec_payout.push_back(gm.bet * 25 / 10);
+                    payout = gm.bet * 25 / 10;
                     gm.result = GAME_RESULT_WIN;
                 }
             } else {
@@ -301,10 +256,10 @@ namespace godapp {
                 }
 
                 if (banker_points > GAME_MAX_POINTS || banker_points < player_points) {
-                    vec_payout.push_back(gm.bet * 2);
+                    payout = gm.bet * 2;
                     gm.result = GAME_RESULT_WIN;
                 } else if (banker_points == player_points) {
-                    vec_payout.push_back(gm.bet);
+                    payout = gm.bet;
                     gm.result = GAME_RESULT_PUSH;
                 } else {
                     gm.result = GAME_RESULT_LOSE;
@@ -319,26 +274,17 @@ namespace godapp {
 			info = gm;
 		});
 
-		auto token_pos = _tokens.find(gm.bet.symbol.raw());
-		auto payout = asset_from_vec(vec_payout, gm.bet.symbol);
-
-        _tokens.modify(token_pos, _self, [&](auto& info) {
-            info.out += payout.amount;
-        });
-
-        char msg[128];
-        sprintf(msg, "[GoDapp] Game result: %s!", result_string(gm.result));
-        for (asset out: vec_payout) {
-            if (out.amount > 0) {
-                INLINE_ACTION_SENDER(eosio::token, transfer)(_self, {_self, name("active")}, {_self, gm.player, out, msg} );
-            }
+        if (payout.amount > 0) {
+            char msg[128];
+            sprintf(msg, "[GoDapp] Game result: %s!", result_string(gm.result));
+            INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, gm.player, gm.bet, payout, string(msg), gm.referer} );
         }
 
         SEND_INLINE_ACTION( *this, receipt, {_self, name("active")},
 		        make_tuple(gm, cards_to_string(gm.banker_cards), cards_to_string(gm.player_cards), "normal close") );
 
 		uint64_t history_index = increment_global_mod(_globals, G_ID_HISTORY_INDEX, GAME_MAX_HISTORY_SIZE);
-		table_upsert(_histories, _self, history_index, [&](auto& info) {
+		table_upsert(_results, _self, history_index, [&](auto& info) {
             info.id = history_index;
             info.close_time = gm.close_time;
 
@@ -346,10 +292,10 @@ namespace godapp {
             info.banker_cards = gm.banker_cards;
 
             info.player = gm.player;
-            info.bet = gm.bet;
             info.insured = gm.insured;
-            info.payout = vec_payout;
 
+            info.bet = gm.bet;
+            info.payout = payout;
             info.result = gm.result;
         });
 	}
