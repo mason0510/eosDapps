@@ -20,7 +20,7 @@ namespace godapp {
         return (card / CARDS_PER_SUIT) % NUM_SUITS;
     }
 
-    card_t card_value(card_t card) {
+    uint8_t card_value(card_t card) {
         return card % CARDS_PER_SUIT + 1;
     }
 

@@ -3,11 +3,10 @@
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/eosio.token.hpp"
-#include <eosiolib/print.hpp>
+#include "../house/house.hpp"
 
 #define G_ID_START                  101
 
-#define G_ID_ACTIVE                 101
 #define G_ID_GAME_ID                102
 #define G_ID_BET_ID                 103
 #define G_ID_END                    103
@@ -15,12 +14,9 @@
 #define GAME_LENGTH                 30
 #define GAME_RESOLVE_TIME           5
 
-#define GAME_STATUS_UNKNOWN         0
 #define GAME_STATUS_STANDBY         1
 #define GAME_STATUS_ACTIVE          2
 
-
-#define MAX_BET_FEE                 0.005
 #define NUM_CARDS                   52 * 8
 
 #define RATE_PLAYER_WIN             2
@@ -38,7 +34,6 @@ namespace godapp {
 	baccarat::baccarat(name receiver, name code, datastream<const char*> ds):
 	contract(receiver, code, ds),
 	_globals(_self, _self.value),
-	_tokens(_self, _self.value),
 	_games(_self, _self.value),
 	_bets(_self, _self.value){
 	}
@@ -47,7 +42,6 @@ namespace godapp {
         require_auth(_self);
 
         init_globals(_globals, G_ID_START, G_ID_END);
-        init_token(_tokens, EOS_SYMBOL, EOS_TOKEN_CONTRACT);
         init_game(EOS_SYMBOL);
 	}
 
@@ -85,21 +79,13 @@ namespace godapp {
         set_global(_globals, key, value);
     }
 
-	void baccarat::transfer(name from, name to, asset quantity, string memo) {
-        if (check_transfer(this, from, to, quantity, memo)) {
-            eosio_assert(get_global(_globals, G_ID_ACTIVE), "game is not active!");
-            _tokens.get(quantity.symbol.raw(), "game do not support the token");
+    void baccarat::play(name player, asset bet, string memo) {
+        param_reader reader(memo);
+        auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() );
+        auto bet_type = (uint8_t) atoi( reader.next_param("Bet type cannot be empty!").c_str() );
+        name referer = reader.get_referer(player);
 
-            param_reader reader(memo);
-            auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() );
-            auto bet_type = (uint8_t) atoi( reader.next_param("Bet type cannot be empty!").c_str() );
-            name referer = reader.get_referrer(from);
-            bet(from, referer, game_id, bet_type, quantity);
-        }
-    }
-
-    void baccarat::bet(name player, name referer, uint64_t game_id, uint8_t bet_type, asset amount) {
-		auto game_iter = _games.find(amount.symbol.raw());
+        auto game_iter = _games.find(bet.symbol.raw());
 		eosio_assert(game_iter->id == game_id, "Game is no longer active");
 
         uint32_t timestamp = now();
@@ -132,7 +118,7 @@ namespace godapp {
 		   a.game_id = game_id;
 		   a.player = player;
 		   a.referer = referer;
-		   a.bet = amount;
+		   a.bet = bet;
 		   a.bet_type = bet_type;
 		});
 	}
@@ -258,7 +244,12 @@ namespace godapp {
             uint8_t bet_type = itr->bet_type;
             if (bet_type & result) {
                 asset payout(itr->bet.amount * payout_rate(bet_type), itr->bet.symbol);
-                INLINE_ACTION_SENDER(eosio::token, transfer)(_self, {_self, name("active")}, {_self, itr->player, payout, msg} );
+
+                transaction trx;
+                trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
+                        make_tuple(_self, itr->player, itr->bet, payout, msg, itr->referer));
+                trx.delay_sec = 1;
+                trx.send(_self.value, _self);
             }
             itr = bet_index.erase(itr);
         }

@@ -180,6 +180,7 @@ namespace godapp {
                 break;
 		    }
             case PLAYER_ACTION_SURRENDER: {
+                eosio_assert(gm.player_cards.size() == 2, "can surrender only after first deal!");
                 gm.status = GAME_STATUS_STOOD;
                 gm.result = GAME_RESULT_SURRENDER;
                 break;

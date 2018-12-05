@@ -19,7 +19,6 @@ namespace godapp {
         public:
 
         DEFINE_GLOBAL_TABLE
-        DEFINE_TOKEN_TABLE
 
         TABLE game {
             uint64_t id;
@@ -59,7 +58,7 @@ namespace godapp {
 
         ACTION init();
         ACTION setglobal(uint64_t key, uint64_t value);
-        ACTION transfer(name from, name to, asset quantity, string memo);
+        ACTION play(name player, asset bet, string memo);
         ACTION reveal(uint64_t game_id);
         ACTION hardclose(uint64_t game_id);
 
@@ -68,7 +67,7 @@ namespace godapp {
         void init_game(symbol sym);
     };
 
-    EOSIO_ABI_EX(baccarat, (init)(reveal)(transfer)(setglobal)(hardclose))
+    EOSIO_ABI_EX(baccarat, (init)(reveal)(play)(setglobal)(hardclose))
 }
 
 
