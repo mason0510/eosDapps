@@ -237,8 +237,9 @@ namespace godapp {
         });
 
         auto bet_index = _bets.get_index<name("bygameid")>();
-        char msg[128];
-        sprintf(msg, "[GoDapp] Baccarat game win!");
+        char buff[128];
+        sprintf(buff, "[GoDapp] Baccarat game win!");
+        string msg(buff);
 
         for (auto itr = bet_index.begin(); itr != bet_index.end();) {
             uint8_t bet_type = itr->bet_type;
