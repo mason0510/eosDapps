@@ -5,7 +5,7 @@
 #include <eosiolib/transaction.h>
 #include <eosiolib/transaction.hpp>
 
-#define card_t uint16_t
+#define card_t uint8_t
 
 #include "../common/constants.hpp"
 #include "../common/contracts.hpp"
@@ -16,16 +16,15 @@ namespace godapp {
     using namespace eosio;
     using namespace std;
 
-    CONTRACT baccarat: public contract {
-        public:
+    CONTRACT redblack: public contract {
+    public:
         DEFINE_GLOBAL_TABLE
-        DEFINE_GAMES_TABLE(vector<card_t>, player_cards, banker_cards)
+        DEFINE_GAMES_TABLE(vector<card_t>, red_cards, black_cards)
         DEFINE_BETS_TABLE
+        DEFINE_RESULTS_TABLE
 
-        DEFINE_STANDARD_ACTIONS(baccarat)
+    DEFINE_STANDARD_ACTIONS(redblack)
     };
 
-    EOSIO_ABI_EX(baccarat, STANDARD_ACTIONS)
+    EOSIO_ABI_EX(redblack, STANDARD_ACTIONS)
 }
-
-

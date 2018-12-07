@@ -24,6 +24,11 @@ namespace godapp {
         return card % CARDS_PER_SUIT + 1;
     }
 
+    uint8_t card_value_with_ace(card_t card) {
+        uint8_t point = card_value(card);
+        return point == 1 ? 13 : point;
+    }
+
     bool is_A(card_t card) {
         return card_value(card) == 1;
     }
@@ -32,7 +37,7 @@ namespace godapp {
         return card_value(card) >= 10;
     }
 
-    card_t draw_random_card(random& random_gen, const vector<card_t>& exclude, int max_number) {
+    card_t draw_random_card(random& random_gen, const vector<card_t>& exclude, card_t max_number) {
         size_t total_dealt = exclude.size();
         auto card = (card_t) random_gen.generator(max_number - total_dealt);
 
@@ -44,6 +49,22 @@ namespace godapp {
             }
         }
         return card;
+    }
+
+    card_t add_card(random& random_gen, vector<card_t>& target, vector<card_t>& existing, card_t max_number) {
+        sort(existing.begin(), existing.end());
+
+        card_t card = draw_random_card(random_gen, existing, max_number);
+        target.push_back(card);
+        existing.push_back(card);
+
+        return card;
+    }
+
+    void add_cards(random& random_gen, vector<card_t>& target, vector<card_t>& existing, uint8_t count, card_t max_number) {
+        for (uint8_t i=0; i<count; i++) {
+            add_card(random_gen, target, existing, max_number);
+        }
     }
 
     string card_suite_str(card_t card){

@@ -14,9 +14,6 @@
 #define GAME_LENGTH                 30
 #define GAME_RESOLVE_TIME           5
 
-#define GAME_STATUS_STANDBY         1
-#define GAME_STATUS_ACTIVE          2
-
 #define NUM_CARDS                   52 * 8
 
 #define RATE_PLAYER_WIN             2
@@ -31,31 +28,14 @@
 #define BET_PLAYER_PAIR             16
 
 namespace godapp {
-	baccarat::baccarat(name receiver, name code, datastream<const char*> ds):
-	contract(receiver, code, ds),
-	_globals(_self, _self.value),
-	_games(_self, _self.value),
-	_bets(_self, _self.value){
-	}
+    baccarat::baccarat(name receiver, name code, datastream<const char*> ds):
+            contract(receiver, code, ds),
+            _globals(_self, _self.value),
+            _games(_self, _self.value),
+            _bets(_self, _self.value){
+    }
 
-	void baccarat::init() {
-        require_auth(_self);
-
-        init_globals(_globals, G_ID_START, G_ID_END);
-        init_game(EOS_SYMBOL);
-	}
-
-    void baccarat::init_game(symbol sym) {
-        auto iter = _games.find(sym.raw());
-        if (iter == _games.end()) {
-            uint64_t next_id = increment_global(_globals, G_ID_GAME_ID);
-            _games.emplace(_self, [&](auto &a) {
-                a.id = next_id;
-                a.symbol = sym;
-                a.status = GAME_STATUS_STANDBY;
-            });
-        }
-	}
+    DEFINE_STANDARD_FUNCTIONS(baccarat)
 
 	double payout_rate(uint8_t bet_type) {
 	    switch (bet_type) {
@@ -69,68 +49,8 @@ namespace godapp {
 	        case BET_PLAYER_PAIR:
 	            return RATE_PAIR;
             default:
-                eosio_assert(false, "Invalid bet type");
                 return 0;
 	    }
-	}
-
-    void baccarat::setglobal(uint64_t key, uint64_t value) {
-        require_auth(_self);
-        set_global(_globals, key, value);
-    }
-
-    void baccarat::play(name player, asset bet, string memo) {
-        param_reader reader(memo);
-        auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() );
-        auto bet_type = (uint8_t) atoi( reader.next_param("Bet type cannot be empty!").c_str() );
-        name referer = reader.get_referer(player);
-
-        auto game_iter = _games.find(bet.symbol.raw());
-		eosio_assert(game_iter->id == game_id, "Game is no longer active");
-
-        uint32_t timestamp = now();
-		uint8_t status = game_iter->status;
-		switch (status) {
-		    case GAME_STATUS_STANDBY: {
-                eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait");
-
-                _games.modify(game_iter, _self, [&](auto &a) {
-                    a.end_time = now() + GAME_LENGTH;
-                    a.status = GAME_STATUS_ACTIVE;
-                });
-
-                transaction close_trx;
-                close_trx.actions.emplace_back(permission_level{ _self, name("active") }, _self, name("reveal"), make_tuple(game_id));
-                close_trx.delay_sec = GAME_LENGTH;
-                close_trx.send(player.value, _self);
-                break;
-		    }
-            case GAME_STATUS_ACTIVE:
-                eosio_assert(timestamp < game_iter->end_time, "Game already finished, please wait for next round");
-                break;
-            default:
-                eosio_assert(false, "Invalid game state");
-		}
-
-		uint64_t next_bet_id = increment_global(_globals, G_ID_BET_ID);
-		_bets.emplace(_self, [&](auto &a) {
-		   a.id = next_bet_id;
-		   a.game_id = game_id;
-		   a.player = player;
-		   a.referer = referer;
-		   a.bet = bet;
-		   a.bet_type = bet_type;
-		});
-	}
-
-	card_t add_card(random& random_gen, vector<card_t>& target, vector<card_t>& existing) {
-        sort(existing.begin(), existing.end());
-
-        card_t card = draw_random_card(random_gen, existing, NUM_CARDS);
-        target.push_back(card);
-        existing.push_back(card);
-
-        return card;
 	}
 
 	uint8_t card_point(card_t card) {
@@ -165,20 +85,6 @@ namespace godapp {
         }
 	}
 
-    void baccarat::hardclose(uint64_t game_id) {
-        require_auth(_self);
-
-        auto idx = _games.get_index<name("byid")>();
-        auto gm_pos = idx.find(game_id);
-
-        uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
-        idx.modify(gm_pos, _self, [&](auto &a) {
-            a.id = next_game_id;
-            a.status = GAME_STATUS_STANDBY;
-            a.end_time = now();
-        });
-	}
-
     void baccarat::reveal(uint64_t game_id) {
         require_auth(_self);
 
@@ -191,21 +97,21 @@ namespace godapp {
 
         vector<card_t> cards, banker_cards, player_cards;
         random random_gen;
-        add_card(random_gen, banker_cards, cards);
-        add_card(random_gen, banker_cards, cards);
+        add_card(random_gen, banker_cards, cards, NUM_CARDS);
+        add_card(random_gen, banker_cards, cards, NUM_CARDS);
 
-        add_card(random_gen, player_cards, cards);
-        add_card(random_gen, player_cards, cards);
+        add_card(random_gen, player_cards, cards, NUM_CARDS);
+        add_card(random_gen, player_cards, cards, NUM_CARDS);
 
         uint8_t banker_point = cards_point(banker_cards);
         uint8_t player_point = cards_point(player_cards);
 
         if (banker_point < 8 && player_point < 6) {
-            uint8_t player_third_card = card_point(add_card(random_gen, player_cards, cards));
+            uint8_t player_third_card = card_point(add_card(random_gen, player_cards, cards, NUM_CARDS));
             player_point = cards_point(player_cards);
 
             if (banker_draw_third_card(banker_point, player_third_card)) {
-                add_card(random_gen, banker_cards, cards);
+                add_card(random_gen, banker_cards, cards, NUM_CARDS);
                 banker_point = cards_point(banker_cards);
             }
         }
@@ -245,12 +151,13 @@ namespace godapp {
             uint8_t bet_type = itr->bet_type;
             if (bet_type & result) {
                 asset payout(itr->bet.amount * payout_rate(bet_type), itr->bet.symbol);
-
-                transaction trx;
-                trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
-                        make_tuple(_self, itr->player, itr->bet, payout, msg, itr->referer));
-                trx.delay_sec = 1;
-                trx.send(_self.value, _self);
+                if (payout.amount > 0) {
+                    transaction trx;
+                    trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
+                                             make_tuple(_self, itr->player, itr->bet, payout, msg, itr->referer));
+                    trx.delay_sec = 1;
+                    trx.send(_self.value, _self);
+                }
             }
             itr = bet_index.erase(itr);
         }
