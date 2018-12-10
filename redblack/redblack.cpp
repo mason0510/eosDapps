@@ -6,12 +6,15 @@
 #include "../house/house.hpp"
 
 #define G_ID_START                  101
+#define G_ID_RESULT_ID              101
 #define G_ID_GAME_ID                102
 #define G_ID_BET_ID                 103
 #define G_ID_END                    103
 
 #define GAME_LENGTH                 30
-#define GAME_RESOLVE_TIME           10
+#define GAME_RESOLVE_TIME           5
+
+#define RESULT_SIZE                 50
 
 #define NUM_CARDS                   52
 
@@ -68,7 +71,7 @@ namespace godapp {
     }
 
     vector<uint8_t> get_hand_points(const vector<card_t>& hand) {
-        vector<uint8_t> result(3);
+        vector<uint8_t> result;
         for (uint8_t value : hand) {
             result.push_back(card_value_with_ace(value));
         }
@@ -80,7 +83,7 @@ namespace godapp {
         bool straight = true, three_of_a_kind = true, pair = false;
         uint8_t last_value = hand_points[0];
 
-        for (int i=1; i<2; i++) {
+        for (int i=1; i<3; i++) {
             uint8_t value = hand_points[i];
             if (last_value == value) {
                 pair = true;
@@ -91,6 +94,7 @@ namespace godapp {
             if (value - last_value != 1 && (value != 13 || last_value != 3)) {
                 straight = false;
             }
+            last_value = value;
         }
 
         if (three_of_a_kind) {
@@ -121,8 +125,8 @@ namespace godapp {
             case BET_THREE_OF_A_KIND:
             case BET_STRAIGHT_FLUSH :
             case BET_STRAIGHT:
-                // the largest card represents the overall strength
-                return compare_side(red[2], black[2]);
+                // the mid card represents the overall strength, regardless of whether there's an Ace
+                return compare_side(red[1], black[1]);
             case BET_PAIR: {
                 // the middle one must be in the pair
                 uint8_t result = compare_side(red[1], black[1]);
@@ -174,7 +178,7 @@ namespace godapp {
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!");
         eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp >= gm_pos->end_time, "Can not reveal yet");
 
-        vector<card_t> cards(6), red_cards(3), black_cards(3);
+        vector<card_t> cards, red_cards, black_cards;
         random random_gen;
         add_cards(random_gen, red_cards, cards, 3, NUM_CARDS);
         add_cards(random_gen, black_cards, cards, 3, NUM_CARDS);
@@ -190,6 +194,6 @@ namespace godapp {
             a.black_cards = black_cards;
         });
 
-        DEFINE_PAYMENT_BLOCK("Red Vs. Black")
+        DEFINE_FINALIZE_BLOCK("Red Vs. Black")
     }
 };

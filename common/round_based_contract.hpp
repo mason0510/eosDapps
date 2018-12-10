@@ -8,9 +8,9 @@
         TABLE game { \
             uint64_t id; \
             uint64_t end_time; \
-            symbol symbol; \
             TYPE LEFT; \
             TYPE RIGHT; \
+            symbol symbol; \
             uint8_t status; \
             uint64_t primary_key() const { return symbol.raw(); } \
             uint64_t byid()const {return id;} \
@@ -72,7 +72,7 @@ private: \
 
 #define DEFINE_INIT_FUNCTION(NAME) \
     void NAME::init() { \
-        require_auth(_self); \
+        require_auth(HOUSE_ACCOUNT); \
         init_globals(_globals, G_ID_START, G_ID_END); \
         initsymbol(EOS_SYMBOL); \
     }
@@ -149,7 +149,13 @@ private: \
         }); \
     }
 
-#define DEFINE_PAYMENT_BLOCK(NAME) \
+#define DEFINE_FINALIZE_BLOCK(NAME) \
+        uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE); \
+        table_upsert(_results, _self, result_index, [&](auto &a) { \
+            a.id = result_index; \
+            a.game_id = game_id; \
+            a.result = result; \
+        }); \
         auto bet_index = _bets.get_index<name("bygameid")>(); \
         char buff[128]; \
         sprintf(buff, "[GoDapp] " NAME " game win!"); \
@@ -158,11 +164,7 @@ private: \
             uint8_t bet_type = itr->bet_type; \
             if (bet_type & result) { \
                 asset payout(itr->bet.amount * payout_rate(bet_type), itr->bet.symbol); \
-                transaction trx; \
-                trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"), \
-                        make_tuple(_self, itr->player, itr->bet, payout, msg, itr->referer)); \
-                trx.delay_sec = 1; \
-                trx.send(_self.value, _self); \
+                INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, itr->player, itr->bet, payout, msg, itr->referer} ); \
             } \
             itr = bet_index.erase(itr); \
         }

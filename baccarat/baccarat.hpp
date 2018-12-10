@@ -21,6 +21,7 @@ namespace godapp {
         DEFINE_GLOBAL_TABLE
         DEFINE_GAMES_TABLE(vector<card_t>, player_cards, banker_cards)
         DEFINE_BETS_TABLE
+        DEFINE_RESULTS_TABLE
 
         DEFINE_STANDARD_ACTIONS(baccarat)
     };

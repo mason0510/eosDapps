@@ -6,7 +6,7 @@
 #include "../house/house.hpp"
 
 #define G_ID_START                  101
-
+#define G_ID_RESULT_ID              101
 #define G_ID_GAME_ID                102
 #define G_ID_BET_ID                 103
 #define G_ID_END                    103
@@ -15,6 +15,7 @@
 #define GAME_RESOLVE_TIME           5
 
 #define NUM_CARDS                   52 * 8
+#define RESULT_SIZE                 50
 
 #define RATE_PLAYER_WIN             2
 #define RATE_BANKER_WIN             1.95
@@ -32,7 +33,8 @@ namespace godapp {
             contract(receiver, code, ds),
             _globals(_self, _self.value),
             _games(_self, _self.value),
-            _bets(_self, _self.value){
+            _bets(_self, _self.value),
+            _results(_self, _self.value){
     }
 
     DEFINE_STANDARD_FUNCTIONS(baccarat)
@@ -147,19 +149,6 @@ namespace godapp {
         sprintf(buff, "[GoDapp] Baccarat game win!");
         string msg(buff);
 
-        for (auto itr = bet_index.begin(); itr != bet_index.end();) {
-            uint8_t bet_type = itr->bet_type;
-            if (bet_type & result) {
-                asset payout(itr->bet.amount * payout_rate(bet_type), itr->bet.symbol);
-                if (payout.amount > 0) {
-                    transaction trx;
-                    trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
-                                             make_tuple(_self, itr->player, itr->bet, payout, msg, itr->referer));
-                    trx.delay_sec = 1;
-                    trx.send(_self.value, _self);
-                }
-            }
-            itr = bet_index.erase(itr);
-        }
+        DEFINE_FINALIZE_BLOCK("Baccarat")
     }
 };
