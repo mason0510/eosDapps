@@ -12,6 +12,7 @@
 
 #define NUM_SUITS 4
 #define CARDS_PER_SUIT 13
+#define ACE_HIGH_VALUE 14
 
 namespace godapp {
     using namespace std;
@@ -26,7 +27,7 @@ namespace godapp {
 
     uint8_t card_value_with_ace(card_t card) {
         uint8_t point = card_value(card);
-        return point == 1 ? 13 : point;
+        return point == 1 ? ACE_HIGH_VALUE : point;
     }
 
     bool is_A(card_t card) {

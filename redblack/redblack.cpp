@@ -91,7 +91,7 @@ namespace godapp {
                 three_of_a_kind = false;
             }
 
-            if (value - last_value != 1 && (value != 13 || last_value != 3)) {
+            if (value - last_value != 1 && (value != ACE_HIGH_VALUE || last_value != 3)) {
                 straight = false;
             }
             last_value = value;
@@ -120,15 +120,15 @@ namespace godapp {
         }
     }
 
-    uint8_t ecompare_same_type(uint8_t hand_type, const vector<card_t>& red, const vector<card_t>& black) {
+    uint8_t compare_same_type(uint8_t hand_type, const vector<card_t>& red, const vector<card_t>& black) {
         switch (hand_type) {
             case BET_THREE_OF_A_KIND:
                 return compare_side(red[1], black[1]);
             case BET_STRAIGHT_FLUSH :
             case BET_STRAIGHT:
                 // compare the largest card, with special handling for the case of A23
-                return compare_side((red[0] == 2 && red[2] == 13)? red[1] : red[2],
-                                    (black[0] == 2 && black[2] == 13)? black[1] : black[2]);
+                return compare_side((red[0] == 2 && red[2] == ACE_HIGH_VALUE)? red[1] : red[2],
+                                    (black[0] == 2 && black[2] == ACE_HIGH_VALUE)? black[1] : black[2]);
             case BET_PAIR: {
                 // the middle one must be in the pair
                 uint8_t result = compare_side(red[1], black[1]);
