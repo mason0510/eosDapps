@@ -23,7 +23,7 @@
 #define GAME_STATUS_STOOD           2
 #define GAME_STATUS_CLOSED          3
 
-#define NUM_CARDS                   104
+#define NUM_CARDS                   208
 #define BANKER_STAND_POINT          17
 #define MAX_CARD_VALUE              10
 
@@ -61,30 +61,24 @@ namespace godapp {
 	    }
 	}
 
+	uint8_t card_point(uint8_t card) {
+	    return min(card_value(card), (uint8_t) MAX_CARD_VALUE);
+	}
+
     uint8_t cal_points(const vector<uint8_t>& cards) {
         uint8_t points = 0;
-        uint8_t count_A = 0;
+        bool has_A = false;
 
         for (uint8_t card : cards) {
-            if (card >= NUM_CARDS) {
-                continue;
-            }
-
-            uint8_t point = min(card_value(card), (uint8_t) MAX_CARD_VALUE);
-            if (is_A(card)) {
-                count_A++;
+            uint8_t point = card_point(card);
+            if (point == 1) {
+                has_A = true;
             }
             points += point;
         }
 
-        eosio_assert(count_A <= 8, "card A num can't large than 4!");
-
-        for (uint8_t i=0; i<count_A; i++) {
-            if (points + 10 > GAME_MAX_POINTS) {
-                return points;
-            } else {
-                points += 10;
-            }
+        if (has_A && points + 10 <= GAME_MAX_POINTS) {
+            points += 10;
         }
         return points;
     }
@@ -250,10 +244,11 @@ namespace godapp {
                     gm.result = GAME_RESULT_WIN;
                 }
             } else {
-                auto banker_points = cal_points(gm.banker_cards);
-                while (banker_points < BANKER_STAND_POINT || banker_points < player_points) {
-                    gm.banker_cards.push_back(random_card(random_gen, gm));
-                    banker_points = cal_points(gm.banker_cards);
+                auto banker_points = card_value(gm.banker_cards[0]);
+                while (banker_points < BANKER_STAND_POINT) {
+                    uint8_t card = random_card(random_gen, gm);
+                    gm.banker_cards.push_back(card);
+                    banker_points += card_point(card);
                 }
 
                 if (banker_points > GAME_MAX_POINTS || banker_points < player_points) {
