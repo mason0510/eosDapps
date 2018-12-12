@@ -23,7 +23,7 @@
 #define GAME_STATUS_STOOD           2
 #define GAME_STATUS_CLOSED          3
 
-#define NUM_CARDS                   208
+#define NUM_CARDS                   52
 #define BANKER_STAND_POINT          17
 #define MAX_CARD_VALUE              10
 
@@ -83,13 +83,8 @@ namespace godapp {
         return points;
     }
 
-    uint8_t blackjack::random_card(random& random_gen, const game_item& gm) {
-	    vector<uint8_t> cards;
-	    cards.insert(cards.end(), gm.banker_cards.begin(), gm.banker_cards.end());
-        cards.insert(cards.end(), gm.player_cards.begin(), gm.player_cards.end());
-        sort(cards.begin(), cards.end());
-
-        return draw_random_card(random_gen, cards, NUM_CARDS);
+    uint8_t random_card(random& random_gen) {
+        return (uint8_t) random_gen.generator(NUM_CARDS);
 	}
 
     void blackjack::setglobal(uint64_t key, uint64_t value) {
@@ -141,10 +136,10 @@ namespace godapp {
 		random random_gen;
 		switch (action) {
 		    case PLAYER_ACTION_NEW: {
-                gm.banker_cards.push_back(random_card(random_gen, gm));
+                gm.banker_cards.push_back(random_card(random_gen));
 
-                gm.player_cards.push_back(random_card(random_gen, gm));
-                gm.player_cards.push_back(random_card(random_gen, gm));
+                gm.player_cards.push_back(random_card(random_gen));
+                gm.player_cards.push_back(random_card(random_gen));
 
                 uint8_t player_points = cal_points(gm.player_cards);
                 eosio_assert(player_points <= GAME_MAX_POINTS, "it's impossible that points larger than 21 in first deal! ");
@@ -155,7 +150,7 @@ namespace godapp {
                 break;
 		    }
 		    case PLAYER_ACTION_HIT: {
-                gm.player_cards.push_back(random_card(random_gen, gm));
+                gm.player_cards.push_back(random_card(random_gen));
                 uint8_t player_points = cal_points(gm.player_cards);
                 if (player_points >= GAME_MAX_POINTS) {
                     gm.status = GAME_STATUS_STOOD;
@@ -168,7 +163,7 @@ namespace godapp {
 		    }
 		    case PLAYER_ACTION_DOUBLE: {
                 eosio_assert(gm.player_cards.size() == 2, "can double only after first deal!");
-                gm.player_cards.push_back(random_card(random_gen, gm));
+                gm.player_cards.push_back(random_card(random_gen));
 
                 gm.status = GAME_STATUS_STOOD;
                 break;
@@ -235,7 +230,7 @@ namespace godapp {
                 gm.result = GAME_RESULT_LOSE;
             } else if (player_points == GAME_MAX_POINTS && gm.player_cards.size() == 2 ) {
                 // player blackjack
-                gm.banker_cards.push_back(random_card(random_gen, gm));
+                gm.banker_cards.push_back(random_card(random_gen));
                 if (cal_points(gm.banker_cards) == GAME_MAX_POINTS) {
                     payout = gm.bet;
                     gm.result = GAME_RESULT_PUSH;
@@ -244,11 +239,10 @@ namespace godapp {
                     gm.result = GAME_RESULT_WIN;
                 }
             } else {
-                auto banker_points = card_value(gm.banker_cards[0]);
-                while (banker_points < BANKER_STAND_POINT) {
-                    uint8_t card = random_card(random_gen, gm);
-                    gm.banker_cards.push_back(card);
-                    banker_points += card_point(card);
+                auto banker_points = cal_points(gm.banker_cards);
+                while (banker_points < BANKER_STAND_POINT || banker_points < player_points) {
+                    gm.banker_cards.push_back(random_card(random_gen));
+                    banker_points = cal_points(gm.banker_cards);
                 }
 
                 if (banker_points > GAME_MAX_POINTS || banker_points < player_points) {

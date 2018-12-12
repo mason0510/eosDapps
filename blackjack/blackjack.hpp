@@ -79,8 +79,6 @@ namespace godapp {
         ACTION close(uint64_t game_id);
 
     private:
-        uint8_t random_card(random& random_gen, const game_item& gm);
-        asset asset_from_vec(const vector<asset>& vec, symbol sym) const;
         void new_game(name player, asset& bet, name referer);
     };
 
