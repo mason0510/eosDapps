@@ -9,11 +9,17 @@
 #define EVENT_LENGTH                86400
 
 namespace godapp {
+    /**
+     * Register a game to the list of supported games in the house
+     * @param game name of the game contract
+     * @param id internal tracking id used in transfer memo
+     */
     void house::addgame(name game, uint64_t id) {
         require_auth(_self);
 
         eosio_assert(is_account(game), "must be an eos account");
 
+        // Register the game into the game table
         game_index games(_self, _self.value);
         auto iter = games.find(game.value);
         if (iter == games.end()) {
@@ -23,6 +29,7 @@ namespace godapp {
                 a.active = true;
             });
 
+            // be default every game accepts EOS token
             token_index game_token(_self, game.value);
             auto token_iter = game_token.find(EOS_SYMBOL.raw());
             if (token_iter == game_token.end()) {
@@ -37,6 +44,7 @@ namespace godapp {
             }
         }
 
+        // call the game to initialize itself
         eosio::transaction r_out;
         auto t_data = make_tuple();
         r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, game, name("init"), t_data);
@@ -44,6 +52,11 @@ namespace godapp {
         r_out.send(_self.value, _self);
     }
 
+    /**
+     * Set the active state of a game, only active games can be played
+     * @param game name of the game to modify
+     * @param active the new active state
+     */
     void house::setactive(name game, bool active) {
         require_auth(_self);
 
@@ -135,6 +148,11 @@ namespace godapp {
     }
 
     void house::pay(name game, name to, asset bet, asset payout, string memo, name referer) {
+        require_auth(game);
+
+        game_index games(_self, _self.value);
+        games.get(game.value, "Game does not exist");
+
         player_index game_player(_self, game.value);
         token_index game_token(_self, game.value);
 
