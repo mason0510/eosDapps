@@ -31,13 +31,12 @@ namespace godapp {
             if (referer_name.empty()) {
                 return default_referer;
             } else {
-                name referer = name(referer_name);
-                if (from == referer) {
+                name referer(referer_name);
+                if (from.value == referer.value) {
                     return default_referer;
                 }
 
-                eosio_assert(is_account(referer), "referrer does not exist");
-                return referer;
+                return is_account(referer) ? referer : default_referer;
             }
         }
 

@@ -219,7 +219,7 @@ namespace godapp {
 		eosio_assert(gm_pos != game_iter.end() && gm_pos->id == id, "game id doesn't exist!");
 		auto gm = *gm_pos;
 
-		asset payout;
+		asset payout(0, gm.bet.symbol);
 
 		if (gm.status != GAME_STATUS_STOOD || gm.result == GAME_RESULT_SURRENDER) {
             payout = gm.bet / 2;
@@ -240,7 +240,7 @@ namespace godapp {
                 }
             } else {
                 auto banker_points = cal_points(gm.banker_cards);
-                while (banker_points < BANKER_STAND_POINT || banker_points < player_points) {
+                while (banker_points < BANKER_STAND_POINT) {
                     gm.banker_cards.push_back(random_card(random_gen));
                     banker_points = cal_points(gm.banker_cards);
                 }
@@ -264,13 +264,7 @@ namespace godapp {
 			info = gm;
 		});
 
-        if (payout.amount > 0) {
-            char msg[128];
-            sprintf(msg, "[GoDapp] Game result: %s!", result_string(gm.result));
-            INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, gm.player, gm.bet, payout, string(msg), gm.referer} );
-        }
-
-        SEND_INLINE_ACTION( *this, receipt, {_self, name("active")},
+        SEND_INLINE_ACTION(*this, receipt, {_self, name("active")},
 		        make_tuple(gm, cards_to_string(gm.banker_cards), cards_to_string(gm.player_cards), "normal close") );
 
 		uint64_t history_index = increment_global_mod(_globals, G_ID_HISTORY_INDEX, GAME_MAX_HISTORY_SIZE);
@@ -288,6 +282,14 @@ namespace godapp {
             info.payout = payout;
             info.result = gm.result;
         });
+
+        char msg[128];
+        sprintf(msg, "[GoDapp] Game result: %s!", result_string(gm.result));
+        transaction deal_trx;
+        deal_trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
+                make_tuple(_self, gm.player, gm.bet, payout, string(msg), gm.referer));
+        deal_trx.delay_sec = 0;
+        deal_trx.send(_self.value, _self);
 	}
 
 	void blackjack::hardclose(uint64_t id, string reason) {

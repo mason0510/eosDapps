@@ -7,12 +7,13 @@
 
 
 #define EVENT_LENGTH                86400
+#define REFERRAL_BOUUS              5
 
 namespace godapp {
     /**
      * Register a game to the list of supported games in the house
-     * @param game name of the game contract
-     * @param id internal tracking id used in transfer memo
+     * @param game Name of the game contract
+     * @param id Internal tracking id used in transfer memo
      */
     void house::addgame(name game, uint64_t id) {
         require_auth(_self);
@@ -54,17 +55,14 @@ namespace godapp {
 
     /**
      * Set the active state of a game, only active games can be played
-     * @param game name of the game to modify
-     * @param active the new active state
+     * @param game Name of the game to modify
+     * @param active The new active state
      */
     void house::setactive(name game, bool active) {
         require_auth(_self);
 
         game_index games(_self, _self.value);
-        auto iter = games.find(game.value);
-        eosio_assert(iter != games.end(), "game does not exist");
-
-        games.modify(iter, _self, [&](auto &a) {
+        table_modify(games, _self, game.value, [&](auto &a) {
             a.active = active;
         });
     }
@@ -88,6 +86,7 @@ namespace godapp {
         param_reader reader(memo);
         string target = reader.next_param("target can not be empty");
         if (target == "deposit") {
+            // this is a deposit for the game, increase the balance (payout limit) automatically
             target = reader.next_param();
             uint64_t game_code = name(target).value;
             token_index game_token(_self, game_code);
@@ -98,12 +97,14 @@ namespace godapp {
                 a.balance += quantity.amount;
             });
         } else {
+            // identify the target game for this transfer
             auto index = (uint8_t) atoi(target.c_str());
             game_index games(_self, _self.value);
             auto idx = games.get_index<name("byid")>();
             auto game = idx.get(index, "Game does not exist");
             eosio_assert(game.active, "game is not active");
 
+            // check that the token is supported and amount is within limit, update record accordingly
             token_index game_token(_self, game.name.value);
             auto token_iter = game_token.find(quantity.symbol.raw());
             eosio_assert(token_iter != game_token.end(), "token is not supported");
@@ -114,6 +115,7 @@ namespace godapp {
                 a.play_times += 1;
             });
 
+            // update the player table for book-keeping
             player_index game_player(_self, game.name.value);
             auto player_iter = game_player.find(from.value);
             if (player_iter == game_player.end()) {
@@ -147,30 +149,52 @@ namespace godapp {
         }
     }
 
+    /**
+     * Pay player and referer on behalf of a game
+     * @param game Name of the game
+     * @param to Name of the payee
+     * @param bet The amount of original bet
+     * @param payout The amount to pay the user
+     * @param memo Memo to include in the payment
+     * @param referer Name of the referer to pay
+     */
     void house::pay(name game, name to, asset bet, asset payout, string memo, name referer) {
         require_auth(game);
 
+        // check that the game is indeed registered so we wouldn't pay for an outside contract
         game_index games(_self, _self.value);
         games.get(game.value, "Game does not exist");
 
         player_index game_player(_self, game.value);
         token_index game_token(_self, game.value);
 
-        auto player_iter = game_player.find(to.value);
-        eosio_assert(player_iter != game_player.end(), "Player does not exist");
-        game_player.modify(player_iter, _self, [&](auto &a) {
-            a.out += payout.amount;
-        });
+        if (payout.amount > 0) {
+            auto player_iter = game_player.find(to.value);
+            eosio_assert(player_iter != game_player.end(), "Player does not exist");
+            game_player.modify(player_iter, _self, [&](auto &a) {
+                a.out += payout.amount;
+            });
+        }
 
         auto token_iter = game_token.find(payout.symbol.raw());
         eosio_assert(token_iter != game_token.end(), "Token not supported");
-        eosio_assert(token_iter->balance > payout.amount, "token balance depleted");
+
+        bool bonus_needed = referer.value != _self.value && payout.symbol.raw() == EOS_SYMBOL.raw();
+        asset refer_bonus = bonus_needed ? (bet * REFERRAL_BOUUS / 1000) : asset(0, EOS_SYMBOL);
+        int64_t pay_amount = payout.amount + refer_bonus.amount;
+
+        eosio_assert(token_iter->balance > pay_amount, "token balance depleted");
         game_token.modify(token_iter, _self, [&](auto &a) {
-            a.out += payout.amount;
-            a.balance -= payout.amount;
+            a.out += pay_amount;
+            a.balance -= pay_amount;
         });
 
-        INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, payout, memo} );
+        if (payout.amount > 0) {
+            INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, payout, memo} );
+        }
+        if (refer_bonus.amount > 0) {
+            INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "GoDapp Referral Bonus"} );
+        }
     }
 
     void house::updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance) {
