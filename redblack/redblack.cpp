@@ -26,7 +26,7 @@
 #define BET_STRAIGHT_FLUSH          32
 #define BET_THREE_OF_A_KIND         64
 
-#define RATE_WIN                    1.96
+#define RATE_WIN                    196
 #define RATE_PAIR                   2
 #define RATE_STRAIGHT               3
 #define RATE_FLUSH                  3
@@ -45,23 +45,23 @@ namespace godapp {
 
     DEFINE_STANDARD_FUNCTIONS(redblack)
 
-    double payout_rate(uint8_t bet_type) {
+    asset get_payout(const asset& bet, uint8_t bet_type) {
         switch (bet_type) {
             case BET_RED_WIN:
             case BET_BLACK_WIN:
-                return RATE_WIN;
+                return bet * RATE_WIN / 100;
             case BET_PAIR:
-                return RATE_PAIR;
+                return bet * RATE_PAIR;
             case BET_STRAIGHT:
-                return RATE_STRAIGHT;
+                return bet * RATE_STRAIGHT;
             case BET_FLUSH:
-                return RATE_FLUSH;
+                return bet * RATE_FLUSH;
             case BET_STRAIGHT_FLUSH:
-                return RATE_STRAIGHT_FLUSH;
+                return bet * RATE_STRAIGHT_FLUSH;
             case BET_THREE_OF_A_KIND:
-                return RATE_THREE_OF_A_KIND;
+                return bet * RATE_THREE_OF_A_KIND;
             default:
-                return 0;
+                return asset(0, EOS_SYMBOL);
         }
     }
 

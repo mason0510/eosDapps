@@ -1,4 +1,5 @@
 #include <eosiolib/eosio.hpp>
+#include <eosiolib/print.hpp>
 #include "contracts.hpp"
 
 #define GAME_STATUS_STANDBY         1
@@ -170,7 +171,7 @@ private: \
             uint8_t bet_type = itr->bet_type; \
             if (bet_type & result) { \
                 asset bet = itr->bet; \
-                asset payout = bet * payout_rate(bet_type); \
+                asset payout = get_payout(bet, bet_type); \
                 auto result_itr = result_map.find(itr->player.value); \
                 if (result_itr == result_map.end()) { \
                     result_map[itr->player.value] = pay_result{bet, payout, itr->referer}; \
@@ -182,8 +183,8 @@ private: \
             itr = bet_index.erase(itr); \
         } \
         char buff[128]; \
-        string msg(buff); \
         sprintf(buff, "[GoDapp] " NAME " game win!"); \
+        string msg(buff); \
         auto largest_winner = result_map.end(); \
         int64_t win_amount = 0; \
         for (auto itr = result_map.begin(); itr != result_map.end(); itr++) { \
