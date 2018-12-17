@@ -32,7 +32,7 @@
 
 #define HOUSE_EDGE 2
 #define MAX_BET 97
-#define MIN_BET 2
+#define MIN_BET 1
 
 using namespace std;
 using namespace eosio;
@@ -43,20 +43,25 @@ namespace godapp {
         init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
     }
 
-    void dice::play(name player, asset bet, string memo){
-        require_auth(TEAM_ACCOUNT);
+    void dice::transfer(name from, name to, asset quantity, string memo) {
+        if (!check_transfer(this, from, to, quantity, memo)) {
+            return;
+        };
+
+        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")},
+                                                     {_self, HOUSE_ACCOUNT, quantity, from.to_string()});
 
         param_reader reader(memo);
         auto roll_type = (uint8_t) atoi( reader.next_param("Roll type cannot be empty!").c_str() );
         auto bet_number = (uint8_t) atoi( reader.next_param("Roll prediction cannot be empty!").c_str() );
         eosio_assert(bet_number >= MIN_BET && bet_number <= MAX_BET, "Bet border must between 2 to 97");
-        name referer = reader.get_referer(player);
+        name referer = reader.get_referer(from);
 
         eosio::transaction r_out;
         r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, _self, name("resolve"),
-                make_tuple(player, bet, roll_type, bet_number, referer));
+                make_tuple(from, quantity, roll_type, bet_number, referer));
         r_out.delay_sec = 1;
-        r_out.send(_self.value, HOUSE_ACCOUNT);
+        r_out.send(_self.value, _self);
     }
 
     int64_t get_bet_reward(uint8_t roll_type, uint8_t bet_number, int64_t amount){
@@ -87,16 +92,19 @@ namespace godapp {
         if ( (roll_type == ROLL_TYPE_UNDER && roll_value < bet_number) || (roll_type == ROLL_TYPE_OVER && roll_value > bet_number) ) {
             reward_amt = get_bet_reward(roll_type, bet_number, bet_asset.amount);
             payout = asset(reward_amt, bet_asset.symbol);
-
-            char str[128];
-            sprintf(str, "Bet id: %lld. You win! ", bet_id);
-            INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, player, bet_asset, payout, string(str), referer} );
         } else {
             payout = asset(0, bet_asset.symbol);
         }
 
-        eosio::time_point_sec time = eosio::time_point_sec( _now );
+        char msg[128];
+        sprintf(msg, "[GoDapp] Bet id: %lld. You win! ", bet_id);
+        transaction deal_trx;
+        deal_trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
+                                      make_tuple(_self, player, bet_asset, payout, string(msg), referer));
+        deal_trx.delay_sec = 0;
+        deal_trx.send(_self.value, _self);
 
+        eosio::time_point_sec time = eosio::time_point_sec( _now );
         uint64_t history_index = increment_global_mod(_globals, GLOBAL_ID_HISTORY_INDEX, BET_HISTORY_LEN);
 
         bet_index bets(_self, _self.value);

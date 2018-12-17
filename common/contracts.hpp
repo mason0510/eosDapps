@@ -160,6 +160,7 @@ namespace godapp {
         if (from == name("eosio.stake")) {
             return false;
         }
+        require_auth(from);
 
         transaction trx = get_transaction();
         action first_action = trx.actions.front();
@@ -167,10 +168,6 @@ namespace godapp {
         eosio_assert(quantity.is_valid(), "Invalid transfer amount.");
         eosio_assert(quantity.amount > 0, "Transfer amount not positive");
         eosio_assert(!memo.empty(), "Memo is required");
-
-        if (memo == "deposit") {
-            return false;
-        }
 
         return true;
     }

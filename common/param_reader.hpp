@@ -22,6 +22,10 @@ namespace godapp {
             return result;
         }
 
+        uint8_t next_param_i(const char* error_msg = "param missing") {
+            return (uint8_t) atoi(next_param(error_msg).c_str());
+        }
+
         string rest() {
             return _params.substr(_last_pos, _params.length() - _last_pos);
         }

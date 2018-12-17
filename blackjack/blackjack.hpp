@@ -69,7 +69,6 @@ namespace godapp {
         blackjack(name receiver, name code, datastream<const char*> ds);
 
         ACTION init();
-        ACTION play(name player, asset bet, string memo);
         ACTION setglobal(uint64_t key, uint64_t value);
         ACTION deal(uint64_t game_id, uint8_t action);
         ACTION playeraction(name player, uint8_t action);
@@ -77,12 +76,10 @@ namespace godapp {
         ACTION cleargames(uint32_t num);
         ACTION receipt(game_item gm, string banker_cards, string player_cards, string memo);
         ACTION close(uint64_t game_id);
-
-    private:
-        void new_game(name player, asset& bet, name referer);
+        ACTION transfer(name from, name to, asset quantity, string memo);
     };
 
-    EOSIO_ABI_EX(blackjack, (init)(deal)(playeraction)(close)(hardclose)(cleargames)(receipt)(play)(setglobal))
+    EOSIO_ABI_EX(blackjack, (init)(deal)(playeraction)(close)(hardclose)(cleargames)(receipt)(setglobal)(transfer))
 }
 
 

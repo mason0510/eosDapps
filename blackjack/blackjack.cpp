@@ -10,7 +10,6 @@
 
 #define G_ID_START                  101
 
-#define G_ID_ACTIVE                 101
 #define G_ID_GAME_ID                102
 #define G_ID_HISTORY_INDEX          103
 #define G_ID_END                    103
@@ -92,38 +91,42 @@ namespace godapp {
         set_global(_globals, key, value);
     }
 
-	void blackjack::play(name player, asset bet, string memo){
-        param_reader reader(memo);
-        string action_name = reader.next_param("action is missing");
-        name referrer = reader.get_referer(player);
+    void blackjack::transfer(name from, name to, asset quantity, string memo) {
+        if (!check_transfer(this, from, to, quantity, memo)) {
+            return;
+        };
 
-        if (action_name == "new") {
-            new_game(player, bet, referrer);
+        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")},
+                                                     {_self, HOUSE_ACCOUNT, quantity, from.to_string()});
+
+        param_reader reader(memo);
+        uint8_t action = reader.next_param_i("action is missing");
+        name referer = reader.get_referer(from);
+
+        if (action == PLAYER_ACTION_NEW) {
+            auto pos = _games.find(from.value);
+            eosio_assert(pos == _games.end() || pos->status == GAME_STATUS_CLOSED , "your last game is in progress!");
+
+            game_item gm;
+            gm.player  = from;
+            gm.id = increment_global(_globals, G_ID_GAME_ID);
+            gm.start_time = current_time();
+            gm.close_time = 0;
+            gm.referer = referer;
+            gm.bet     = quantity;
+            gm.insured = false;
+            gm.status  = GAME_STATUS_ACTIVE;
+
+            table_upsert(_games, _self, from.value, [&](auto& info) {
+                info = gm;
+            });
+
+            SEND_INLINE_ACTION(*this, playeraction, {_self, name("active")}, make_tuple(from, PLAYER_ACTION_NEW));
         } else {
             eosio_assert(false, "unknown action to play");
         }
-    }
-
-	void blackjack::new_game(name player, asset& bet, name referer) {
-		auto pos = _games.find(player.value);
-		eosio_assert(pos == _games.end() || pos->status == GAME_STATUS_CLOSED , "your last game is in progress!");
-
-		game_item gm;
-        gm.player  = player;
-        gm.id = increment_global(_globals, G_ID_GAME_ID);
-        gm.start_time = current_time();
-        gm.close_time = 0;
-        gm.referer = referer;
-        gm.bet     = bet;
-        gm.insured = false;
-        gm.status  = GAME_STATUS_ACTIVE;
-
-		table_upsert(_games, _self, player.value, [&](auto& info) {
-            info = gm;
-		});
-
-        SEND_INLINE_ACTION(*this, playeraction, {_self, name("active")}, make_tuple(player, PLAYER_ACTION_NEW) );
 	}
+
 
 	void blackjack::deal(uint64_t id, uint8_t action) {
 		require_auth(_self);
