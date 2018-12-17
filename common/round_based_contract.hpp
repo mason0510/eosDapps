@@ -12,13 +12,21 @@
             TYPE RIGHT; \
             symbol symbol; \
             uint8_t status; \
+            name largest_winner; \
+            asset largest_win_amount; \
             uint64_t primary_key() const { return symbol.raw(); } \
             uint64_t byid()const {return id;} \
         }; \
-        typedef multi_index<name("games"), game, \
+        typedef multi_index<name("gametable"), game, \
             indexed_by< name("byid"), const_mem_fun<game, uint64_t, &game::byid> > \
         > games_table; \
-        games_table _games;
+        games_table _games; \
+        \
+        struct pay_result { \
+            asset bet; \
+            asset payout; \
+            name referer; \
+        };
 
 
 #define DEFINE_BETS_TABLE \
@@ -55,18 +63,19 @@ public: \
         ACTION play(name player, asset bet, string memo); \
         ACTION reveal(uint64_t game_id); \
         ACTION hardclose(uint64_t game_id); \
+        ACTION transfer(name from, name to, asset quantity, string memo); \
 private: \
         void initsymbol(symbol sym); \
         void bet(name player, name referer, uint64_t game_id, uint8_t bet_type, asset amount); \
 
 
-#define STANDARD_ACTIONS (init)(reveal)(play)(setglobal)(hardclose)
+#define STANDARD_ACTIONS (init)(reveal)(transfer)(setglobal)(hardclose)
 
 #define DEFINE_STANDARD_FUNCTIONS(NAME) \
         DEFINE_INIT_FUNCTION(NAME) \
         DEFINE_SET_GLOBAL(NAME) \
         DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
-        DEFINE_PLAY_FUNCTION(NAME) \
+        DEFINE_TRANSFER_FUNCTION(NAME) \
         DEFINE_HARDCLOSE_FUNCTION(NAME)
 
 
@@ -96,13 +105,18 @@ private: \
         } \
     }
 
-#define DEFINE_PLAY_FUNCTION(NAME) \
-    void NAME::play(name player, asset bet, string memo) { \
+#define DEFINE_TRANSFER_FUNCTION(NAME) \
+     void NAME::transfer(name from, name to, asset quantity, string memo) { \
+        if (!check_transfer(this, from, to, quantity, memo)) { \
+                return; \
+        }; \
+        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")}, \
+            {_self, HOUSE_ACCOUNT, quantity, from.to_string()}); \
         param_reader reader(memo); \
         auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() ); \
         auto bet_type = (uint8_t) atoi( reader.next_param("Bet type cannot be empty!").c_str() ); \
-        name referer = reader.get_referer(player); \
-        auto game_iter = _games.find(bet.symbol.raw()); \
+        name referer = reader.get_referer(from); \
+        auto game_iter = _games.find(quantity.symbol.raw()); \
         eosio_assert(game_iter->id == game_id, "Game is no longer active"); \
         uint32_t timestamp = now(); \
         uint8_t status = game_iter->status; \
@@ -116,7 +130,7 @@ private: \
                 transaction close_trx; \
                 close_trx.actions.emplace_back(permission_level{ _self, name("active") }, _self, name("reveal"), make_tuple(game_id)); \
                 close_trx.delay_sec = GAME_LENGTH; \
-                close_trx.send(player.value, _self); \
+                close_trx.send(from.value, _self); \
                 break; \
             } \
             case GAME_STATUS_ACTIVE: \
@@ -129,9 +143,9 @@ private: \
         _bets.emplace(_self, [&](auto &a) { \
             a.id = next_bet_id; \
             a.game_id = game_id; \
-            a.player = player; \
+            a.player = from; \
             a.referer = referer; \
-            a.bet = bet; \
+            a.bet = quantity; \
             a.bet_type = bet_type; \
         }); \
     }
@@ -149,22 +163,52 @@ private: \
         }); \
     }
 
-#define DEFINE_FINALIZE_BLOCK(NAME) \
-        uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE); \
-        table_upsert(_results, _self, result_index, [&](auto &a) { \
-            a.id = result_index; \
-            a.game_id = game_id; \
-            a.result = result; \
-        }); \
+#define DEFINE_FINALIZE_BLOCK(NAME, LEFT, RIGHT) \
+        map<uint64_t, pay_result> result_map; \
         auto bet_index = _bets.get_index<name("bygameid")>(); \
-        char buff[128]; \
-        sprintf(buff, "[GoDapp] " NAME " game win!"); \
-        string msg(buff); \
         for (auto itr = bet_index.begin(); itr != bet_index.end();) { \
             uint8_t bet_type = itr->bet_type; \
             if (bet_type & result) { \
-                asset payout(itr->bet.amount * payout_rate(bet_type), itr->bet.symbol); \
-                INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, {_self, itr->player, itr->bet, payout, msg, itr->referer} ); \
+                asset bet = itr->bet; \
+                asset payout = bet * payout_rate(bet_type); \
+                auto result_itr = result_map.find(itr->player.value); \
+                if (result_itr == result_map.end()) { \
+                    result_map[itr->player.value] = pay_result{bet, payout, itr->referer}; \
+                } else { \
+                    result_itr->second.bet += bet; \
+                    result_itr->second.payout += payout; \
+                } \
             } \
             itr = bet_index.erase(itr); \
-        }
+        } \
+        char buff[128]; \
+        string msg(buff); \
+        sprintf(buff, "[GoDapp] " NAME " game win!"); \
+        auto largest_winner = result_map.end(); \
+        int64_t win_amount = 0; \
+        for (auto itr = result_map.begin(); itr != result_map.end(); itr++) { \
+            auto current = itr->second; \
+            if (current.payout.amount > win_amount && current.payout.symbol == EOS_SYMBOL) { \
+                largest_winner = itr; \
+                win_amount = current.payout.amount; \
+            } \
+            INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")}, \
+                {_self, name(itr->first), current.bet, current.payout, msg, current.referer} ); \
+            } \
+            uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID); \
+            name winner_name = largest_winner == result_map.end() ? name() : name(largest_winner->first); \
+            idx.modify(gm_pos, _self, [&](auto &a) { \
+                a.id = next_game_id; \
+                a.status = GAME_STATUS_STANDBY; \
+                a.end_time = timestamp + GAME_RESOLVE_TIME; \
+                a.largest_winner = winner_name; \
+                a.largest_win_amount = asset(win_amount, EOS_SYMBOL); \
+                a.LEFT = LEFT; \
+                a.RIGHT = RIGHT; \
+            }); \
+            uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE); \
+            table_upsert(_results, _self, result_index, [&](auto &a) { \
+                a.id = result_index; \
+                a.game_id = game_id; \
+                a.result = result; \
+            });

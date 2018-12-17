@@ -11,8 +11,8 @@
 #define G_ID_BET_ID                 103
 #define G_ID_END                    103
 
-#define GAME_LENGTH                 30
-#define GAME_RESOLVE_TIME           5
+#define GAME_LENGTH                 60
+#define GAME_RESOLVE_TIME           10
 
 #define RESULT_SIZE                 50
 
@@ -186,16 +186,7 @@ namespace godapp {
         add_cards(random_gen, black_cards, cards, 3, NUM_CARDS);
 
         uint8_t result = get_result(red_cards, black_cards);
-        uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
-        idx.modify(gm_pos, _self, [&](auto &a) {
-            a.id = next_game_id;
-            a.status = GAME_STATUS_STANDBY;
-            a.end_time = timestamp + GAME_RESOLVE_TIME;
 
-            a.red_cards = red_cards;
-            a.black_cards = black_cards;
-        });
-
-        DEFINE_FINALIZE_BLOCK("Red Vs. Black")
+        DEFINE_FINALIZE_BLOCK("War of Stars", red_cards, black_cards);
     }
 };

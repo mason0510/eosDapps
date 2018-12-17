@@ -23,7 +23,7 @@ namespace godapp {
         DEFINE_BETS_TABLE
         DEFINE_RESULTS_TABLE
 
-    DEFINE_STANDARD_ACTIONS(redblack)
+        DEFINE_STANDARD_ACTIONS(redblack)
     };
 
     EOSIO_ABI_EX(redblack, STANDARD_ACTIONS)
