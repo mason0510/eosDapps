@@ -67,6 +67,9 @@ namespace godapp {
         });
     }
 
+    /**
+     * Receive transfer from games, and check payment status
+     */
     void house::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
             return;
@@ -82,7 +85,7 @@ namespace godapp {
             token_index game_token(_self, from.value);
             auto token_iter = game_token.find(quantity.symbol.raw());
             eosio_assert(token_iter != game_token.end(), "token is not supported");
-            eosio_assert(quantity.amount >= token_iter->min && quantity.amount <= token_iter->max, "Invalid amount");
+            eosio_assert(quantity.amount >= token_iter->min && quantity.amount <= token_iter->max, "amount not within the bet limit");
             game_token.modify(token_iter, _self, [&](auto &a) {
                 a.in += quantity.amount;
                 a.balance += quantity.amount;
@@ -93,25 +96,27 @@ namespace godapp {
             player_index game_player(_self, from.value);
             name player = name(memo);
             eosio_assert(is_account(player), "invalid player account");
+            // we only keep track of EOS cash flow
+            uint64_t amount = quantity.symbol == EOS_SYMBOL ? quantity.amount : 0;
 
             auto player_iter = game_player.find(player.value);
             if (player_iter == game_player.end()) {
                 game_player.emplace(_self, [&](auto &a) {
                     a.name = player;
-                    a.in = quantity.amount;
+                    a.in = amount;
                     a.out = 0;
                     a.play_times = 1;
                     a.last_play_time = now();
-                    a.event_in = quantity.amount;
+                    a.event_in = amount;
                 });
             } else {
                 uint32_t timestamp = now();
+                // reset event play amount if it has past event (day) boundary
                 uint64_t event_in = (player_iter->last_play_time / EVENT_LENGTH) > (timestamp / EVENT_LENGTH) ?
                                     0 : player_iter->event_in;
-                event_in += quantity.amount;
-
+                event_in += amount;
                 game_player.modify(player_iter, _self, [&](auto &a) {
-                    a.in += quantity.amount;
+                    a.in += amount;
                     a.play_times += 1;
                     a.last_play_time = timestamp;
                     a.event_in = event_in;
@@ -128,10 +133,11 @@ namespace godapp {
                 token_index game_token(_self, game_code);
 
                 auto token_iter = game_token.find(quantity.symbol.raw());
-                eosio_assert(token_iter != game_token.end(), "token is not supported");
-                game_token.modify(token_iter, _self, [&](auto &a) {
-                    a.balance += quantity.amount;
-                });
+                if (token_iter != game_token.end()) {
+                    game_token.modify(token_iter, _self, [&](auto &a) {
+                        a.balance += quantity.amount;
+                    });
+                }
             } else {
                 eosio_assert(false, "invalid action");
             }
@@ -157,22 +163,29 @@ namespace godapp {
         player_index game_player(_self, game.value);
         token_index game_token(_self, game.value);
 
-        if (payout.amount > 0) {
-            auto player_iter = game_player.find(to.value);
-            eosio_assert(player_iter != game_player.end(), "Player does not exist");
-            game_player.modify(player_iter, _self, [&](auto &a) {
-                a.out += payout.amount;
-            });
-        }
-
         auto token_iter = game_token.find(payout.symbol.raw());
         eosio_assert(token_iter != game_token.end(), "Token not supported");
 
-        bool bonus_needed = referer.value != _self.value && payout.symbol.raw() == EOS_SYMBOL.raw();
-        asset refer_bonus = bonus_needed ? (bet * REFERRAL_BOUUS / 1000) : asset(0, EOS_SYMBOL);
-        int64_t pay_amount = payout.amount + refer_bonus.amount;
+        int64_t pay_amount = payout.amount;
+        if (payout.symbol == EOS_SYMBOL) {
+            if (payout.amount > 0) {
+                auto player_iter = game_player.find(to.value);
+                eosio_assert(player_iter != game_player.end(), "Player does not exist");
+                game_player.modify(player_iter, _self, [&](auto &a) {
+                    a.out += payout.amount;
+                });
+            }
 
-        eosio_assert(token_iter->balance > pay_amount, "token balance depleted");
+            if (referer.value != _self.value) {
+                asset refer_bonus = bet * REFERRAL_BOUUS / 1000;
+                pay_amount += refer_bonus.amount;
+                if (refer_bonus.amount > 0) {
+                    INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "GoDapp Referral Bonus"} );
+                }
+            }
+        }
+
+        eosio_assert(token_iter->balance >= pay_amount, "token balance depleted");
         game_token.modify(token_iter, _self, [&](auto &a) {
             a.out += pay_amount;
             a.balance -= pay_amount;
@@ -180,9 +193,6 @@ namespace godapp {
 
         if (payout.amount > 0) {
             INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, payout, memo} );
-        }
-        if (refer_bonus.amount > 0) {
-            INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "GoDapp Referral Bonus"} );
         }
     }
 
