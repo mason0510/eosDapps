@@ -48,14 +48,10 @@ namespace godapp {
         eosio_assert(bet_number >= MIN_BET && bet_number <= MAX_BET, "bet number must between 1 to 97");
         name referer = reader.get_referer(from);
 
-        eosio::transaction r_out;
-        r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, _self, name("resolve"),
-                make_tuple(from, quantity, bet_number, referer));
-        r_out.delay_sec = 1;
-        r_out.send(_self.value, _self);
+        delayed_action(_self, name("resolve"), make_tuple(from, quantity, bet_number, referer));
     }
 
-    void dice::resolve(name player, asset bet_asset, uint8_t roll_type, uint8_t bet_number, name referer){
+    void dice::resolve(name player, asset bet_asset, uint8_t bet_number, name referer){
         require_auth(_self);
 
         random random_gen;
@@ -75,13 +71,7 @@ namespace godapp {
             payout = asset(0, bet_asset.symbol);
         }
 
-        char msg[128];
-        sprintf(msg, "[GoDapp] Bet id: %lld. You win! ", bet_id);
-        transaction deal_trx;
-        deal_trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
-                                      make_tuple(_self, player, bet_asset, payout, string(msg), referer));
-        deal_trx.delay_sec = 0;
-        deal_trx.send(_self.value, _self);
+        make_payment(_self, player, bet_asset, payout, referer, "[GoDapp] Dice game win!");
 
         eosio::time_point_sec time = eosio::time_point_sec( _now );
         uint64_t history_index = increment_global_mod(_globals, GLOBAL_ID_HISTORY_INDEX, BET_HISTORY_LEN);
@@ -91,7 +81,6 @@ namespace godapp {
             a.id = history_index;
             a.bet_id = bet_id;
             a.player = player;
-            a.referer = referer;
 
             a.sym = bet_asset.symbol;
             a.bet = (uint64_t) bet_asset.amount;
@@ -99,10 +88,8 @@ namespace godapp {
 
             a.bet_value = bet_number;
             a.roll_value = roll_value;
-            a.seed = seed;
             a.time = time;
         });
-
         INLINE_ACTION_SENDER(dice, receipt)(_self, {_self, name("active")}, {bet_id, player, bet_asset, payout, seed, bet_number, roll_value});
     }
 

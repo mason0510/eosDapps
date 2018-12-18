@@ -118,4 +118,21 @@ namespace godapp {
 
         return true;
     }
+
+    void make_payment(name self, name player, asset bet_asset, asset payout, name referer, const string& memo) {
+        transaction deal_trx;
+        deal_trx.actions.emplace_back(permission_level{self, name("active") }, HOUSE_ACCOUNT, name("pay"),
+                                      make_tuple(self, player, bet_asset, payout, memo, referer));
+        deal_trx.delay_sec = 0;
+        deal_trx.send(self.value, self);
+    }
+
+    template<typename T>
+    void delayed_action(name self, name action, T&& data) {
+        eosio::transaction r_out;
+        r_out.actions.emplace_back(eosio::permission_level{self, name("active")}, self, action, data);
+        r_out.delay_sec = 1;
+        r_out.send(self.value, self);
+
+    }
 }
