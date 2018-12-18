@@ -87,12 +87,6 @@ private: \
         initsymbol(EOS_SYMBOL); \
     }
 
-#define DEFINE_SET_GLOBAL(NAME) \
-    void NAME::setglobal(uint64_t key, uint64_t value) { \
-        require_auth(_self); \
-        set_global(_globals, key, value); \
-    }
-
 #define DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
     void NAME::initsymbol(symbol sym) { \
         auto iter = _games.find(sym.raw()); \

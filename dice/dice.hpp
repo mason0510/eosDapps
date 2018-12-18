@@ -32,7 +32,7 @@ namespace godapp {
 
             uint64_t primary_key() const { return id; };
         };
-        typedef eosio::multi_index<name("bets"), bet> bet_index;
+        typedef eosio::multi_index<name("games"), bet> bet_index;
 
         ACTION init();
         ACTION resolve(name player, asset bet_asset, uint8_t bet_number, name referrer);

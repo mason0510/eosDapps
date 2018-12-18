@@ -51,6 +51,8 @@ namespace godapp {
         init_globals(_globals, G_ID_START, G_ID_END);
 	}
 
+    DEFINE_SET_GLOBAL(blackjack)
+
 	const char* result_string(uint8_t result) {
 	    switch (result) {
 	        case GAME_RESULT_SURRENDER: return "surrender";
@@ -61,6 +63,7 @@ namespace godapp {
 	}
 
 	uint8_t card_point(uint8_t card) {
+	    // nature card values are capped at 10 in blackjack
 	    return min(card_value(card), (uint8_t) MAX_CARD_VALUE);
 	}
 
@@ -76,6 +79,7 @@ namespace godapp {
             points += point;
         }
 
+        // Up to one A could be either 1 or 11 points
         if (has_A && points + 10 <= GAME_MAX_POINTS) {
             points += 10;
         }
@@ -86,18 +90,8 @@ namespace godapp {
         return (uint8_t) random_gen.generator(NUM_CARDS);
 	}
 
-    void blackjack::setglobal(uint64_t key, uint64_t value) {
-        require_auth(_self);
-        set_global(_globals, key, value);
-    }
-
     void blackjack::transfer(name from, name to, asset quantity, string memo) {
-        if (!check_transfer(this, from, to, quantity, memo)) {
-            return;
-        };
-
-        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")},
-                                                     {_self, HOUSE_ACCOUNT, quantity, from.to_string()});
+        DISPATCH_TRANSFER
 
         param_reader reader(memo);
         uint8_t action = reader.next_param_i("action is missing");
@@ -121,12 +115,21 @@ namespace godapp {
                 info = gm;
             });
 
-            SEND_INLINE_ACTION(*this, playeraction, {_self, name("active")}, make_tuple(from, PLAYER_ACTION_NEW));
+            // deal the initial cards to the game as a new game
+            delayed_action(_self, name("deal"), make_tuple(gm.id, PLAYER_ACTION_NEW));
         } else {
             eosio_assert(false, "unknown action to play");
         }
 	}
 
+    void blackjack::playeraction(name player, uint8_t action) {
+        require_auth(player);
+
+        eosio_assert(action != PLAYER_ACTION_NEW, "new game can only be started via transfer");
+        auto game = _games.get(player.value, "you have no game in progress!");
+        eosio_assert(game.status == GAME_STATUS_ACTIVE, "Your game is not active!");
+        delayed_action(_self, name("deal"), make_tuple(game.id, action));
+    }
 
 	void blackjack::deal(uint64_t id, uint8_t action) {
 		require_auth(_self);
@@ -144,9 +147,8 @@ namespace godapp {
                 gm.player_cards.push_back(random_card(random_gen));
                 gm.player_cards.push_back(random_card(random_gen));
 
+                // finish the game immediately if user has a black jack in starting hand
                 uint8_t player_points = cal_points(gm.player_cards);
-                eosio_assert(player_points <= GAME_MAX_POINTS, "it's impossible that points larger than 21 in first deal! ");
-
                 if (player_points == GAME_MAX_POINTS) {
                     gm.status = GAME_STATUS_STOOD;
                 }
@@ -164,23 +166,12 @@ namespace godapp {
                 gm.status = GAME_STATUS_STOOD;
 		        break;
 		    }
-		    case PLAYER_ACTION_DOUBLE: {
-                eosio_assert(gm.player_cards.size() == 2, "can double only after first deal!");
-                gm.player_cards.push_back(random_card(random_gen));
-
-                gm.status = GAME_STATUS_STOOD;
-                break;
-		    }
             case PLAYER_ACTION_SURRENDER: {
                 eosio_assert(gm.player_cards.size() == 2, "can surrender only after first deal!");
                 gm.status = GAME_STATUS_STOOD;
                 gm.result = GAME_RESULT_SURRENDER;
                 break;
             }
-		    case PLAYER_ACTION_INSURE: {
-                eosio_assert(gm.player_cards.size() == 2, "can insure only after first deal!");
-                break;
-		    }
             default: {
                 eosio_assert(false, "dealed: unknown action");
             }
@@ -195,22 +186,6 @@ namespace godapp {
         }
 	}
 
-	void blackjack::playeraction(name player, uint8_t action) {
-        if(action == PLAYER_ACTION_NEW || action == PLAYER_ACTION_INSURE || action == PLAYER_ACTION_DOUBLE) {
-            require_auth(_self);
-        } else {
-            require_auth(player);
-        }
-
-		auto game = _games.get(player.value, "you have no game in progress!");
-		eosio_assert(game.status == GAME_STATUS_ACTIVE, "Your game is not active!");
-
-		transaction deal_trx;
-		deal_trx.actions.emplace_back(permission_level{ _self, name("active") }, _self, name("deal"), make_tuple(game.id, action));
-		deal_trx.delay_sec = 1;
-		deal_trx.send(player.value, _self);
-	}
-
 	void blackjack::close(uint64_t id) {
 		require_auth(_self);
 
@@ -223,16 +198,20 @@ namespace godapp {
 		auto gm = *gm_pos;
 
 		asset payout(0, gm.bet.symbol);
-
-		if (gm.status != GAME_STATUS_STOOD || gm.result == GAME_RESULT_SURRENDER) {
+		if (gm.status != GAME_STATUS_STOOD) {
+		    // force close all stood games
+		    gm.result = GAME_RESULT_LOSE;
+        } else if (gm.result == GAME_RESULT_SURRENDER) {
+            // return half of the bet if it's a surrender
             payout = gm.bet / 2;
-		} else {
+        } else {
             auto player_points = cal_points(gm.player_cards);
+
             if (player_points > GAME_MAX_POINTS) {
-                payout = asset(0, gm.bet.symbol);
+                // player busted, lose
                 gm.result = GAME_RESULT_LOSE;
-            } else if (player_points == GAME_MAX_POINTS && gm.player_cards.size() == 2 ) {
-                // player blackjack
+            } else if (player_points == GAME_MAX_POINTS && gm.player_cards.size() == 2) {
+                // player blackjack, push if banker also has a blackjack, otherwise pay 2.5X
                 gm.banker_cards.push_back(random_card(random_gen));
                 if (cal_points(gm.banker_cards) == GAME_MAX_POINTS) {
                     payout = gm.bet;
@@ -242,12 +221,14 @@ namespace godapp {
                     gm.result = GAME_RESULT_WIN;
                 }
             } else {
+                // otherwise deal cards to bank until it hits a soft 17
                 auto banker_points = cal_points(gm.banker_cards);
                 while (banker_points < BANKER_STAND_POINT) {
                     gm.banker_cards.push_back(random_card(random_gen));
                     banker_points = cal_points(gm.banker_cards);
                 }
 
+                // compare points and whoever has more point wins
                 if (banker_points > GAME_MAX_POINTS || banker_points < player_points) {
                     payout = gm.bet * 2;
                     gm.result = GAME_RESULT_WIN;
@@ -258,7 +239,7 @@ namespace godapp {
                     gm.result = GAME_RESULT_LOSE;
                 }
             }
-		}
+        }
 
 		gm.status = GAME_STATUS_CLOSED;
 		gm.close_time = ct;
@@ -287,17 +268,17 @@ namespace godapp {
         });
 
         char msg[128];
-        sprintf(msg, "[GoDapp] Game result: %s!", result_string(gm.result));
-        transaction deal_trx;
-        deal_trx.actions.emplace_back(permission_level{ _self, name("active") }, HOUSE_ACCOUNT, name("pay"),
-                make_tuple(_self, gm.player, gm.bet, payout, string(msg), gm.referer));
-        deal_trx.delay_sec = 0;
-        deal_trx.send(_self.value, _self);
+        sprintf(msg, "[GoDapp] Blackjack game result: %s!", result_string(gm.result));
+		make_payment(_self, gm.player, gm.bet, payout, gm.referer, string(msg));
 	}
 
+	/**
+	 * Force close a game
+	 * @param id Id of the game
+	 * @param reason Reason for the closure
+	 */
 	void blackjack::hardclose(uint64_t id, string reason) {
 		require_auth(_self);
-
 		eosio_assert(reason.size() <= 256, "reason size must <= 256");
 
 		auto idx = _games.get_index<name("byid")>();

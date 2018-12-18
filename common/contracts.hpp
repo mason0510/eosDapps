@@ -78,6 +78,12 @@ namespace godapp {
         return result;
     }
 
+    #define DEFINE_SET_GLOBAL(NAME) \
+    void NAME::setglobal(uint64_t key, uint64_t value) { \
+        require_auth(_self); \
+        set_global(_globals, key, value); \
+    }
+
     //###############    Transactions  ######################
     #define EOSIO_ABI_EX( TYPE, MEMBERS ) \
     extern "C" { \
@@ -93,6 +99,15 @@ namespace godapp {
        } \
     }
 
+    /**
+     * Check transaction and dispatch transferred token to the house account
+     */
+    #define DISPATCH_TRANSFER \
+    if (!check_transfer(this, from, to, quantity, memo)) { \
+        return; \
+    }; \
+    INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")}, \
+        {_self, HOUSE_ACCOUNT, quantity, from.to_string()});
 
     /**
      * Check a transfer against normal issues
@@ -119,6 +134,15 @@ namespace godapp {
         return true;
     }
 
+    /**
+     * Call the house contract to make a payment to the target player
+     * @param self Name of the calling contract
+     * @param player Player to be paid
+     * @param bet_asset Amount of the asset of the original bet
+     * @param payout Amount to be paid to the player as win
+     * @param referer Name of the referer
+     * @param memo Memo to be used for the win message
+     */
     void make_payment(name self, name player, asset bet_asset, asset payout, name referer, const string& memo) {
         transaction deal_trx;
         deal_trx.actions.emplace_back(permission_level{self, name("active") }, HOUSE_ACCOUNT, name("pay"),
@@ -127,12 +151,17 @@ namespace godapp {
         deal_trx.send(self.value, self);
     }
 
+    /**
+     * Perform a action under a default 1 second delay
+     * @param self Name of the calling contract
+     * @param action name of the action to be performed
+     * @param data Data used for the action
+     */
     template<typename T>
     void delayed_action(name self, name action, T&& data) {
         eosio::transaction r_out;
         r_out.actions.emplace_back(eosio::permission_level{self, name("active")}, self, action, data);
         r_out.delay_sec = 1;
         r_out.send(self.value, self);
-
     }
 }

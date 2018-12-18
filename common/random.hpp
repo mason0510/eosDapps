@@ -3,6 +3,9 @@
 #include <eosiolib/crypto.h>
 #include <eosiolib/transaction.hpp>
 
+/**
+ * Random number generator picked from EOS.WIN
+ */
 namespace godapp {
     class random {
     public:
