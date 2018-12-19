@@ -25,6 +25,9 @@ namespace godapp {
         return card % CARDS_PER_SUIT + 1;
     }
 
+    /**
+     * Get the value of a card, with Ace being the largest 14
+     */
     uint8_t card_value_with_ace(card_t card) {
         uint8_t point = card_value(card);
         return point == 1 ? ACE_HIGH_VALUE : point;
@@ -38,10 +41,21 @@ namespace godapp {
         return card_value(card) >= 10;
     }
 
-    card_t draw_random_card(random& random_gen, const vector<card_t>& exclude, card_t max_number) {
+    /**
+     * Get a random card from a deck, with excluded cards removed
+     * @param random_gen The random number generator
+     * @param exclude Cards excluded, expected to be sorted
+     * @param max_number Max number of cards to pull
+     * @return
+     */
+    card_t draw_random_card(random& random_gen, vector<card_t>& exclude, card_t max_number) {
         size_t total_dealt = exclude.size();
+        // draw a card from the remaining deck
         auto card = (card_t) random_gen.generator(max_number - total_dealt);
 
+        // sort the excluded cards based on card number
+        sort(exclude.begin(), exclude.end());
+        // then, from the beginning of the deck, bump the card number based on the number of cards already drawn
         for(card_t i: exclude) {
             if (card >= i) {
                 card++;
@@ -52,9 +66,15 @@ namespace godapp {
         return card;
     }
 
+    /**
+     * Add a card to the target list, excluding existing cards
+     * @param random_gen Random number generator
+     * @param target Target list to add the card
+     * @param existing Cards already pulled
+     * @param max_number Max number for card that can be drawn
+     * @return the card drawn
+     */
     card_t add_card(random& random_gen, vector<card_t>& target, vector<card_t>& existing, card_t max_number) {
-        sort(existing.begin(), existing.end());
-
         card_t card = draw_random_card(random_gen, existing, max_number);
         target.push_back(card);
         existing.push_back(card);

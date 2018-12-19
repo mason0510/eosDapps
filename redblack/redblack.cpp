@@ -20,11 +20,19 @@
 
 #define BET_RED_WIN                 1
 #define BET_BLACK_WIN               2
+
+// special case, small pair still counts as a pair in turns of hand comparison
+// but does not count as a lucky strike
+#define RESULT_SMALL_PAIR           3
+
 #define BET_PAIR                    4
 #define BET_STRAIGHT                8
 #define BET_FLUSH                   16
 #define BET_STRAIGHT_FLUSH          32
 #define BET_THREE_OF_A_KIND         64
+
+// bit mask for all lucky strike related flags, not including small pair
+#define LUCKY_STRIKE_MASK           0x11111100
 
 #define RATE_WIN                    196
 #define RATE_PAIR                   2
@@ -61,7 +69,7 @@ namespace godapp {
             case BET_THREE_OF_A_KIND:
                 return bet * RATE_THREE_OF_A_KIND;
             default:
-                return asset(0, EOS_SYMBOL);
+                return {0, EOS_SYMBOL};
         }
     }
 
@@ -70,7 +78,10 @@ namespace godapp {
         return suit == card_suit(hand[1]) && suit == card_suit(hand[2]);
     }
 
-    vector<uint8_t> get_hand_points(const vector<card_t>& hand) {
+    /**
+     * preprocess the points in a hand to convert them to points, and sort based on the point value
+     */
+    vector<uint8_t> preprocess_hand(const vector<card_t> &hand) {
         vector<uint8_t> result;
         for (uint8_t value : hand) {
             result.push_back(card_value_with_ace(value));
@@ -90,7 +101,7 @@ namespace godapp {
             } else {
                 three_of_a_kind = false;
             }
-
+            // special case for straight, ace can be in either 23A or QKA
             if (value - last_value != 1 && (value != ACE_HIGH_VALUE || last_value != 3)) {
                 straight = false;
             }
@@ -104,7 +115,7 @@ namespace godapp {
         } else if (same_suit) {
             return BET_FLUSH;
         } else if (pair) {
-            return BET_PAIR;
+            return hand_points[1] < 9 ? RESULT_SMALL_PAIR : BET_PAIR;
         } else {
             return 0;
         }
@@ -120,16 +131,20 @@ namespace godapp {
         }
     }
 
+    /**
+     * Compare hands with the same hand type
+     */
     uint8_t compare_same_type(uint8_t hand_type, const vector<card_t>& red, const vector<card_t>& black) {
         switch (hand_type) {
             case BET_THREE_OF_A_KIND:
-                return compare_side(red[1], black[1]);
+                return compare_side(red[0], black[0]);
             case BET_STRAIGHT_FLUSH :
             case BET_STRAIGHT:
-                // compare the largest card, with special handling for the case of A23
+                // compare the largest card, with special handling for the case of 23A
                 return compare_side((red[0] == 2 && red[2] == ACE_HIGH_VALUE)? red[1] : red[2],
                                     (black[0] == 2 && black[2] == ACE_HIGH_VALUE)? black[1] : black[2]);
-            case BET_PAIR: {
+            case BET_PAIR:
+            case RESULT_SMALL_PAIR:{
                 // the middle one must be in the pair
                 uint8_t result = compare_side(red[1], black[1]);
                 if (result != 0) {
@@ -154,20 +169,18 @@ namespace godapp {
     }
 
     uint8_t get_result(const vector<card_t>& red, const vector<card_t>& black) {
-        vector<uint8_t> red_points = get_hand_points(red);
-        vector<uint8_t> black_points = get_hand_points(black);
+        vector<uint8_t> red_points = preprocess_hand(red);
+        vector<uint8_t> black_points = preprocess_hand(black);
 
         uint8_t red_type = get_hand_type(red_points, is_same_suit(red));
         uint8_t black_type = get_hand_type(black_points, is_same_suit(black));
 
-        uint8_t result = max(red_type, black_type);
-        if (red_type > black_type) {
-            return result | BET_RED_WIN;
-        } else if (black_type > red_type) {
-            return result | BET_BLACK_WIN;
-        } else {
-            return result | compare_same_type(result, red_points, black_points);
+        uint8_t result = compare_side(red_type, black_type);
+        if (result == 0) {
+            result = compare_same_type(red_type, red_points, black_points);
         }
+        uint8_t max_type = max(red_type, black_type);
+        return result | (max_type & LUCKY_STRIKE_MASK);
     }
 
     void redblack::reveal(uint64_t game_id) {
