@@ -120,18 +120,6 @@ namespace godapp {
         return r;
     }
 
-    capi_checksum256 random::get_sys_seed() const {
-        return _sseed;
-    }
-
-    capi_checksum256 random::get_user_seed() const {
-        return _useed;
-    }
-
-    capi_checksum256 random::get_mixed() const {
-        return _mixed;
-    }
-
     capi_checksum256 random::get_seed() const {
         return _seed;
     }

@@ -30,7 +30,7 @@ namespace godapp {
             return _params.substr(_last_pos, _params.length() - _last_pos);
         }
 
-        name get_referer(name from, name default_referer = TEAM_ACCOUNT) {
+        name get_referer(name from, name default_referer = HOUSE_ACCOUNT) {
             string referer_name = next_param("referrer is missing");
             if (referer_name.empty()) {
                 return default_referer;

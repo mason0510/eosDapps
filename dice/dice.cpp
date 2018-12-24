@@ -31,7 +31,7 @@ using namespace eosio;
 
 namespace godapp {
     void dice::init() {
-        require_auth(TEAM_ACCOUNT);
+        require_auth(HOUSE_ACCOUNT);
         init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
     }
 

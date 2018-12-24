@@ -47,7 +47,7 @@ namespace godapp {
 	}
 
 	void blackjack::init() {
-        require_auth(TEAM_ACCOUNT);
+        require_auth(HOUSE_ACCOUNT);
         init_globals(_globals, G_ID_START, G_ID_END);
 	}
 
