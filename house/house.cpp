@@ -39,7 +39,7 @@ namespace godapp {
                     a.contract = EOS_TOKEN_CONTRACT;
 
                     a.min = 1000;
-                    a.max = 500000;
+                    a.max_payout = 2000000;
                     a.balance = 0;
                 });
             }
@@ -84,8 +84,6 @@ namespace godapp {
             // check that the token is supported and amount is within limit, update record accordingly
             token_index game_token(_self, from.value);
             auto token_iter = game_token.find(quantity.symbol.raw());
-            eosio_assert(token_iter != game_token.end(), "token is not supported");
-            eosio_assert(quantity.amount >= token_iter->min && quantity.amount <= token_iter->max, "amount not within the bet limit");
             game_token.modify(token_iter, _self, [&](auto &a) {
                 a.in += quantity.amount;
                 a.balance += quantity.amount;
@@ -196,7 +194,7 @@ namespace godapp {
         }
     }
 
-    void house::updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance) {
+    void house::updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max_payout, uint64_t balance) {
         require_auth(_self);
         token_index game_token(_self, game.value);
 
@@ -204,7 +202,7 @@ namespace godapp {
             a.sym = token;
             a.contract = contract;
             a.min = min;
-            a.max = max;
+            a.max_payout = max_payout;
             a.balance = balance;
         });
     }

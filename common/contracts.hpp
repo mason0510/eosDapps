@@ -100,16 +100,6 @@ namespace godapp {
     }
 
     /**
-     * Check transaction and dispatch transferred token to the house account
-     */
-    #define DISPATCH_TRANSFER \
-    if (!check_transfer(this, from, to, quantity, memo)) { \
-        return; \
-    }; \
-    INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")}, \
-        {_self, HOUSE_ACCOUNT, quantity, from.to_string()});
-
-    /**
      * Check a transfer against normal issues
      * @param self A pointer for the calling contract
      * @param from The sender

@@ -7,11 +7,10 @@
 #include <eosiolib/action.hpp>
 
 #include "dice.hpp"
-#include "../house/house.hpp"
-#include "../common/eosio.token.hpp"
 #include "../common/utils.hpp"
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
+#include "../common/game_contracts.hpp"
 
 #define GLOBAL_ID_START 1001
 
@@ -35,19 +34,21 @@ namespace godapp {
         init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
     }
 
+    uint64_t reward_amount(asset bet_asset, uint8_t  bet_number) {
+        return bet_asset.amount * (100 - HOUSE_EDGE) / bet_number;
+    }
+
     void dice::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
             return;
         };
 
-        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")},
-                                                     {_self, HOUSE_ACCOUNT, quantity, from.to_string()});
-
         param_reader reader(memo);
         auto bet_number = reader.next_param_i("Roll prediction cannot be empty!");
         eosio_assert(bet_number >= MIN_BET && bet_number <= MAX_BET, "bet number must between 1 to 97");
-        name referer = reader.get_referer(from);
+        transfer_to_house(_self, quantity, from, reward_amount(quantity, bet_number));
 
+        name referer = reader.get_referer(from);
         delayed_action(_self, name("resolve"), make_tuple(from, quantity, bet_number, referer));
     }
 
@@ -62,11 +63,8 @@ namespace godapp {
         asset payout;
 
         uint32_t _now = now();
-        int64_t reward_amt;
-
         if (roll_value < bet_number) {
-            reward_amt = bet_asset.amount * (100 - HOUSE_EDGE) / bet_number;
-            payout = asset(reward_amt, bet_asset.symbol);
+            payout = asset(reward_amount(bet_asset, bet_number), bet_asset.symbol);
         } else {
             payout = asset(0, bet_asset.symbol);
         }

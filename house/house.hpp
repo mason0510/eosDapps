@@ -37,7 +37,7 @@ namespace godapp {
             uint64_t play_times = 0;
 
             uint64_t min;
-            uint64_t max;
+            uint64_t max_payout;
             uint64_t balance;
 
             uint64_t primary_key() const { return sym.raw(); };

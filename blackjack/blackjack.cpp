@@ -5,8 +5,7 @@
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/eosio.token.hpp"
-#include "../house/house.hpp"
-#include <eosiolib/print.hpp>
+#include "../common/game_contracts.hpp"
 
 #define G_ID_START                  101
 
@@ -91,35 +90,38 @@ namespace godapp {
 	}
 
     void blackjack::transfer(name from, name to, asset quantity, string memo) {
-        DISPATCH_TRANSFER
-
-        param_reader reader(memo);
-        uint8_t action = reader.next_param_i("action is missing");
-        name referer = reader.get_referer(from);
-
-        if (action == PLAYER_ACTION_NEW) {
-            auto pos = _games.find(from.value);
-            eosio_assert(pos == _games.end() || pos->status == GAME_STATUS_CLOSED , "your last game is in progress!");
-
-            game_item gm;
-            gm.player  = from;
-            gm.id = increment_global(_globals, G_ID_GAME_ID);
-            gm.start_time = current_time();
-            gm.close_time = 0;
-            gm.referer = referer;
-            gm.bet     = quantity;
-            gm.insured = false;
-            gm.status  = GAME_STATUS_ACTIVE;
-
-            table_upsert(_games, _self, from.value, [&](auto& info) {
-                info = gm;
-            });
-
-            // deal the initial cards to the game as a new game
-            delayed_action(_self, name("deal"), make_tuple(gm.id, PLAYER_ACTION_NEW));
-        } else {
-            eosio_assert(false, "unknown action to play");
+	    if (!check_transfer(this, from, to, quantity, memo)) {
+	        return;
         }
+	    transfer_to_house(_self, quantity, from, (quantity * 5 / 2).amount);
+
+	    param_reader reader(memo);
+	    uint8_t action = reader.next_param_i("action is missing");
+	    name referer = reader.get_referer(from);
+
+	    if (action == PLAYER_ACTION_NEW) {
+	        auto pos = _games.find(from.value);
+	        eosio_assert(pos == _games.end() || pos->status == GAME_STATUS_CLOSED , "your last game is in progress!");
+
+	        game_item gm;
+	        gm.player  = from;
+	        gm.id = increment_global(_globals, G_ID_GAME_ID);
+	        gm.start_time = current_time();
+	        gm.close_time = 0;
+	        gm.referer = referer;
+	        gm.bet     = quantity;
+	        gm.insured = false;
+	        gm.status  = GAME_STATUS_ACTIVE;
+
+	        table_upsert(_games, _self, from.value, [&](auto& info) {
+	            info = gm;
+	        });
+
+	        // deal the initial cards to the game as a new game
+	        delayed_action(_self, name("deal"), make_tuple(gm.id, PLAYER_ACTION_NEW));
+	    } else {
+	        eosio_assert(false, "unknown action to play");
+	    }
 	}
 
     void blackjack::playeraction(name player, uint8_t action) {
