@@ -77,10 +77,11 @@ namespace godapp {
 
         game_index games(_self, _self.value);
         auto game_itr = games.find(from.value);
-        eosio_assert(game_itr->active, "game is not active");
 
         // if this is from a game
         if (game_itr != games.end()) {
+            eosio_assert(game_itr->active, "game is not active");
+
             // check that the token is supported and amount is within limit, update record accordingly
             token_index game_token(_self, from.value);
             auto token_iter = game_token.find(quantity.symbol.raw());
