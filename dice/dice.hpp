@@ -48,5 +48,5 @@ namespace godapp {
         }
     };
 
-    EOSIO_ABI_EX(dice, (init)(transfer)(resolve)(receipt))
+    EOSIO_ABI_EX(dice, (init)(transfer)(resolve)(play)(receipt))
 }
