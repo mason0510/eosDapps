@@ -8,6 +8,7 @@
 
 #define EVENT_LENGTH                86400
 #define REFERRAL_BOUUS              5
+#define WIN_CUTOFF                  2000000
 
 namespace godapp {
     /**
@@ -109,6 +110,7 @@ namespace godapp {
                     a.event_in = amount;
                 });
             } else {
+                eosio_assert((player_iter->in + WIN_CUTOFF) > player_iter->out, "Game Under Maintenance"
                 uint32_t timestamp = now();
                 // reset event play amount if it has past event (day) boundary
                 uint64_t event_in = (player_iter->last_play_time / EVENT_LENGTH) > (timestamp / EVENT_LENGTH) ?
