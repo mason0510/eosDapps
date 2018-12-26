@@ -35,6 +35,7 @@ namespace godapp {
         typedef eosio::multi_index<name("games"), bet> bet_index;
 
         ACTION init();
+        ACTION play(name player, asset bet_asset, uint8_t bet_number, name referrer);
         ACTION resolve(name player, asset bet_asset, uint8_t bet_number, name referrer);
 
         ACTION receipt(uint64_t bet_id, name player, asset bet, asset payout, capi_checksum256 seed,

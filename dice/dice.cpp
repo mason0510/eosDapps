@@ -7,7 +7,10 @@
 #include <eosiolib/action.hpp>
 
 #include "dice.hpp"
-
+#include "../common/utils.hpp"
+#include "../common/tables.hpp"
+#include "../common/param_reader.hpp"
+#include "../common/game_contracts.hpp"
 
 #define GLOBAL_ID_START 1001
 
@@ -50,7 +53,7 @@ namespace godapp {
     }
 
     void dice::play(name player, asset bet_asset, uint8_t bet_number, name referer){
-        delayed_action(_self, name("resolve"), make_tuple(from, quantity, bet_number, referer));
+        delayed_action(_self, name("resolve"), make_tuple(player, bet_asset, bet_number, referer));
     }
 
     void dice::resolve(name player, asset bet_asset, uint8_t bet_number, name referer){
