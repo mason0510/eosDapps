@@ -20,19 +20,16 @@
 
 #define BET_RED_WIN                 1
 #define BET_BLACK_WIN               2
+#define BET_LUCKY_STRIKE            3
 
 // special case, small pair still counts as a pair in turns of hand comparison
 // but does not count as a lucky strike
-#define RESULT_SMALL_PAIR           3
-
-#define BET_PAIR                    4
-#define BET_STRAIGHT                8
-#define BET_FLUSH                   16
-#define BET_STRAIGHT_FLUSH          32
-#define BET_THREE_OF_A_KIND         64
-
-// bit mask for all lucky strike related flags, not including small pair
-#define LUCKY_STRIKE_MASK           0x11111100
+#define HAND_SMALL_PAIR             1
+#define HAND_PAIR                   2
+#define HAND_STRAIGHT               3
+#define HAND_FLUSH                  4
+#define HAND_STRAIGHT_FLUSH         5
+#define HAND_THREE_OF_A_KIND        6
 
 #define RATE_WIN                    196
 #define RATE_PAIR                   2
@@ -53,23 +50,20 @@ namespace godapp {
 
     DEFINE_STANDARD_FUNCTIONS(redblack)
 
-    asset get_payout(const asset& bet, uint8_t bet_type) {
+    uint8_t get_lucky_strike_rate(uint8_t bet_type) {
         switch (bet_type) {
-            case BET_RED_WIN:
-            case BET_BLACK_WIN:
-                return bet * RATE_WIN / 100;
-            case BET_PAIR:
-                return bet * RATE_PAIR;
-            case BET_STRAIGHT:
-                return bet * RATE_STRAIGHT;
-            case BET_FLUSH:
-                return bet * RATE_FLUSH;
-            case BET_STRAIGHT_FLUSH:
-                return bet * RATE_STRAIGHT_FLUSH;
-            case BET_THREE_OF_A_KIND:
-                return bet * RATE_THREE_OF_A_KIND;
+            case HAND_PAIR:
+                return RATE_PAIR;
+            case HAND_STRAIGHT:
+                return RATE_STRAIGHT;
+            case HAND_FLUSH:
+                return RATE_FLUSH;
+            case HAND_STRAIGHT_FLUSH:
+                return RATE_STRAIGHT_FLUSH;
+            case HAND_THREE_OF_A_KIND:
+                return RATE_THREE_OF_A_KIND;
             default:
-                return {0, EOS_SYMBOL};
+                return 0;
         }
     }
 
@@ -109,13 +103,13 @@ namespace godapp {
         }
 
         if (three_of_a_kind) {
-            return BET_THREE_OF_A_KIND;
+            return HAND_THREE_OF_A_KIND;
         } else if (straight) {
-            return same_suit ? BET_STRAIGHT_FLUSH : BET_STRAIGHT;
+            return same_suit ? HAND_STRAIGHT_FLUSH : HAND_STRAIGHT;
         } else if (same_suit) {
-            return BET_FLUSH;
+            return HAND_FLUSH;
         } else if (pair) {
-            return hand_points[1] < 9 ? RESULT_SMALL_PAIR : BET_PAIR;
+            return hand_points[1] < 9 ? HAND_SMALL_PAIR : HAND_PAIR;
         } else {
             return 0;
         }
@@ -136,15 +130,15 @@ namespace godapp {
      */
     uint8_t compare_same_type(uint8_t hand_type, const vector<card_t>& red, const vector<card_t>& black) {
         switch (hand_type) {
-            case BET_THREE_OF_A_KIND:
+            case HAND_THREE_OF_A_KIND:
                 return compare_side(red[0], black[0]);
-            case BET_STRAIGHT_FLUSH :
-            case BET_STRAIGHT:
+            case HAND_STRAIGHT_FLUSH :
+            case HAND_STRAIGHT:
                 // compare the largest card, with special handling for the case of 23A
                 return compare_side((red[0] == 2 && red[2] == ACE_HIGH_VALUE)? red[1] : red[2],
                                     (black[0] == 2 && black[2] == ACE_HIGH_VALUE)? black[1] : black[2]);
-            case BET_PAIR:
-            case RESULT_SMALL_PAIR:{
+            case HAND_PAIR:
+            case HAND_SMALL_PAIR:{
                 // the middle one must be in the pair
                 uint8_t result = compare_side(red[1], black[1]);
                 if (result != 0) {
@@ -168,20 +162,6 @@ namespace godapp {
         }
     }
 
-    uint8_t get_result(const vector<card_t>& red, const vector<card_t>& black) {
-        vector<uint8_t> red_points = preprocess_hand(red);
-        vector<uint8_t> black_points = preprocess_hand(black);
-
-        uint8_t red_type = get_hand_type(red_points, is_same_suit(red));
-        uint8_t black_type = get_hand_type(black_points, is_same_suit(black));
-
-        uint8_t result = compare_side(red_type, black_type);
-        if (result == 0) {
-            result = compare_same_type(red_type, red_points, black_points);
-        }
-        uint8_t max_type = max(red_type, black_type);
-        return result | (max_type & LUCKY_STRIKE_MASK);
-    }
 
     void redblack::reveal(uint64_t game_id) {
         require_auth(_self);
@@ -198,8 +178,71 @@ namespace godapp {
         add_cards(random_gen, red_cards, cards, 3, NUM_CARDS);
         add_cards(random_gen, black_cards, cards, 3, NUM_CARDS);
 
-        uint8_t result = get_result(red_cards, black_cards);
+        vector<uint8_t> red_points = preprocess_hand(red_cards);
+        vector<uint8_t> black_points = preprocess_hand(black_cards);
 
-        DEFINE_FINALIZE_BLOCK("War of Stars", red_cards, black_cards);
+        uint8_t red_type = get_hand_type(red_points, is_same_suit(red_cards));
+        uint8_t black_type = get_hand_type(black_points, is_same_suit(black_cards));
+
+        uint8_t result = compare_side(red_type, black_type);
+        if (result == 0) {
+            result = compare_same_type(red_type, red_points, black_points);
+        }
+        uint8_t lucky_rate = get_lucky_strike_rate(max(red_type, black_type));
+
+        map<uint64_t, pay_result> result_map;
+        auto bet_index = _bets.get_index<name("bygameid")>();
+        for (auto itr = bet_index.begin(); itr != bet_index.end();) {
+            uint8_t bet_type = itr->bet_type;
+            asset bet = itr->bet;
+
+            asset payout;
+            if (bet_type == result) {
+                payout = bet * RATE_WIN / 100;
+            } else if (bet_type == BET_LUCKY_STRIKE) {
+                payout = bet * lucky_rate;
+            }
+
+            if (payout.amount > 0) {
+                auto result_itr = result_map.find(itr->player.value);
+                if (result_itr == result_map.end()) {
+                    result_map[itr->player.value] = pay_result{bet, payout, itr->referer};
+                } else {
+                    result_itr->second.bet += bet;
+                    result_itr->second.payout += payout;
+                }
+            }
+            itr = bet_index.erase(itr);
+        }
+
+        auto largest_winner = result_map.end();
+        int64_t win_amount = 0;
+        for (auto itr = result_map.begin(); itr != result_map.end(); itr++) {
+            auto current = itr->second;
+            if (current.payout.amount > win_amount && current.payout.symbol == EOS_SYMBOL) {
+                largest_winner = itr;
+                win_amount = current.payout.amount;
+            }
+            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[GoDapp] Dice game win!");
+        }
+
+        uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
+        name winner_name = largest_winner == result_map.end() ? name() : name(largest_winner->first);
+        idx.modify(gm_pos, _self, [&](auto &a) {
+            a.id = next_game_id;
+            a.status = GAME_STATUS_STANDBY;
+            a.end_time = timestamp + GAME_RESOLVE_TIME;
+            a.largest_winner = winner_name;
+            a.largest_win_amount = asset(win_amount, EOS_SYMBOL);
+            a.red_cards = red_cards;
+            a.black_cards = black_cards;
+        });
+
+        uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE);
+        table_upsert(_results, _self, result_index, [&](auto &a) {
+            a.id = result_index;
+            a.game_id = game_id;
+            a.result = result;
+        });
     }
 };
