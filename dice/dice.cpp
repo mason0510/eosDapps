@@ -7,10 +7,7 @@
 #include <eosiolib/action.hpp>
 
 #include "dice.hpp"
-#include "../common/utils.hpp"
-#include "../common/tables.hpp"
-#include "../common/param_reader.hpp"
-#include "../common/game_contracts.hpp"
+
 
 #define GLOBAL_ID_START 1001
 
@@ -49,6 +46,10 @@ namespace godapp {
         transfer_to_house(_self, quantity, from, reward_amount(quantity, bet_number));
 
         name referer = reader.get_referer(from);
+        delayed_action(_self, name("play"), make_tuple(from, quantity, bet_number, referer));
+    }
+
+    void dice::play(name player, asset bet_asset, uint8_t bet_number, name referer){
         delayed_action(_self, name("resolve"), make_tuple(from, quantity, bet_number, referer));
     }
 
