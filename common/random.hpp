@@ -91,7 +91,7 @@ namespace godapp {
         capi_checksum256 txid;
         sha256(tx, s, &txid);
 
-        capi_checksum256 sseed = create_sys_seed(0);
+        capi_checksum256 sseed = create_sys_seed(mixed);
         seed(sseed, txid);
     }
 
