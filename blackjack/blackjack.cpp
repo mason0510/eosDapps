@@ -118,7 +118,7 @@ namespace godapp {
 	        });
 
 	        // deal the initial cards to the game as a new game
-	        delayed_action(_self, name("deal"), make_tuple(gm.id, PLAYER_ACTION_NEW));
+	        delayed_action(_self, from, name("deal"), make_tuple(gm.id, PLAYER_ACTION_NEW));
 	    } else {
 	        eosio_assert(false, "unknown action to play");
 	    }
@@ -130,7 +130,7 @@ namespace godapp {
         eosio_assert(action != PLAYER_ACTION_NEW, "new game can only be started via transfer");
         auto game = _games.get(player.value, "you have no game in progress!");
         eosio_assert(game.status == GAME_STATUS_ACTIVE, "Your game is not active!");
-        delayed_action(_self, name("deal"), make_tuple(game.id, action));
+        delayed_action(_self, player, name("deal"), make_tuple(game.id, action));
     }
 
 	void blackjack::deal(uint64_t id, uint8_t action) {

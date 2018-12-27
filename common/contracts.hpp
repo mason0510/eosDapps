@@ -138,7 +138,7 @@ namespace godapp {
         deal_trx.actions.emplace_back(permission_level{self, name("active") }, HOUSE_ACCOUNT, name("pay"),
                                       make_tuple(self, player, bet_asset, payout, memo, referer));
         deal_trx.delay_sec = 0;
-        deal_trx.send(self.value, self);
+        deal_trx.send(player.value, self);
     }
 
     /**
@@ -148,10 +148,10 @@ namespace godapp {
      * @param data Data used for the action
      */
     template<typename T>
-    void delayed_action(name self, name action, T&& data) {
+    void delayed_action(name self, name sender, name action, T&& data, uint8_t delay = 1) {
         eosio::transaction r_out;
         r_out.actions.emplace_back(eosio::permission_level{self, name("active")}, self, action, data);
-        r_out.delay_sec = 1;
-        r_out.send(self.value, self);
+        r_out.delay_sec = delay;
+        r_out.send(sender.value, self);
     }
 }

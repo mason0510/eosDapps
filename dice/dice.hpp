@@ -36,11 +36,11 @@ namespace godapp {
 
         ACTION init();
         ACTION setglobal(uint64_t key, uint64_t value);
-        ACTION play(name player, asset bet_asset, uint8_t bet_number, name referrer);
-        ACTION resolve(name player, asset bet_asset, uint8_t bet_number, name referrer);
+        ACTION play(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referrer);
+        ACTION resolve(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referrer);
 
         ACTION receipt(uint64_t bet_id, name player, asset bet, asset payout, capi_checksum256 seed,
-                uint64_t bet_value, uint64_t roll_value);
+                uint8_t bet_value, uint64_t roll_value);
         ACTION transfer(name from, name to, asset quantity, string memo);
 
         dice(name receiver, name code, datastream<const char *> ds) :

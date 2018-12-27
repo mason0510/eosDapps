@@ -51,25 +51,23 @@ namespace godapp {
         transfer_to_house(_self, quantity, from, reward_amount(quantity, bet_number));
 
         name referer = reader.get_referer(from);
-        delayed_action(_self, name("play"), make_tuple(from, quantity, bet_number, referer));
+        uint64_t bet_id = increment_global(_globals, GLOBAL_ID_BET);
+        delayed_action(_self, from, name("play"), make_tuple(bet_id, from, quantity, bet_number, referer));
     }
 
-    void dice::play(name player, asset bet_asset, uint8_t bet_number, name referer){
+    void dice::play(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referer){
         require_auth(_self);
-
-        delayed_action(_self, name("resolve"), make_tuple(player, bet_asset, bet_number, referer));
+        delayed_action(_self, player, name("resolve"), make_tuple(bet_id, player, bet_asset, bet_number, referer));
     }
 
-    void dice::resolve(name player, asset bet_asset, uint8_t bet_number, name referer){
+    void dice::resolve(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referer){
         require_auth(_self);
 
-        random random_gen;
+        random random_gen(bet_id);
         uint64_t roll_value = random_gen.generator(MAX_ROLL_NUM);
         capi_checksum256 seed = random_gen.get_seed();
 
-        uint64_t bet_id = increment_global(_globals, GLOBAL_ID_BET);
         asset payout;
-
         uint32_t _now = now();
         if (roll_value < bet_number) {
             payout = asset(reward_amount(bet_asset, bet_number), bet_asset.symbol);
@@ -77,7 +75,8 @@ namespace godapp {
             payout = asset(0, bet_asset.symbol);
         }
 
-        make_payment(_self, player, bet_asset, payout, referer, "[GoDapp] Dice game win!");
+        make_payment(_self, player, bet_asset, payout, referer,
+                payout.amount > 0 ? "[GoDapp] Dice game win!" : "[GoDapp] Dice game lose!");
 
         eosio::time_point_sec time = eosio::time_point_sec( _now );
         uint64_t history_index = increment_global_mod(_globals, GLOBAL_ID_HISTORY_INDEX, BET_HISTORY_LEN);
@@ -96,11 +95,11 @@ namespace godapp {
             a.roll_value = roll_value;
             a.time = time;
         });
-        INLINE_ACTION_SENDER(dice, receipt)(_self, {_self, name("active")}, {bet_id, player, bet_asset, payout, seed, bet_number, roll_value});
+        delayed_action(_self, _self, name("receipt"), make_tuple(bet_id, player, bet_asset, payout, seed, bet_number, roll_value), 0);
     }
 
     void dice::receipt(uint64_t bet_id, name player, asset bet, asset payout,
-            capi_checksum256 seed, uint64_t bet_value, uint64_t roll_value) {
+            capi_checksum256 seed, uint8_t bet_value, uint64_t roll_value) {
         require_auth(_self);
         require_recipient( player );
     }
