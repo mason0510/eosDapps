@@ -118,7 +118,7 @@ namespace godapp {
 	        });
 
 	        // deal the initial cards to the game as a new game
-	        delayed_action(_self, from, name("deal"), make_tuple(gm.id, PLAYER_ACTION_NEW));
+	        delayed_action(_self, from, name("play"), make_tuple(from, gm.id, ((uint8_t) PLAYER_ACTION_NEW)), 0);
 	    } else {
 	        eosio_assert(false, "unknown action to play");
 	    }
@@ -130,10 +130,15 @@ namespace godapp {
         eosio_assert(action != PLAYER_ACTION_NEW, "new game can only be started via transfer");
         auto game = _games.get(player.value, "you have no game in progress!");
         eosio_assert(game.status == GAME_STATUS_ACTIVE, "Your game is not active!");
-        delayed_action(_self, player, name("deal"), make_tuple(game.id, action));
+        delayed_action(_self, player, name("play"), make_tuple(player, game.id, action), 0);
     }
 
-	void blackjack::deal(uint64_t id, uint8_t action) {
+	void blackjack::play(name player, uint64_t game_id, uint8_t action) {
+		require_auth(_self);
+		delayed_action(_self, player, name("deal"), make_tuple(player, game_id, action));
+	}
+
+	void blackjack::deal(name player, uint64_t id, uint8_t action) {
 		require_auth(_self);
 
 		auto idx = _games.get_index<name("byid")>();
@@ -141,7 +146,7 @@ namespace godapp {
 		eosio_assert(gm_pos != idx.end() && gm_pos->id == id, "deal: game id does't exist!");
 		auto gm = *gm_pos;
 
-		random random_gen;
+		random random_gen(id);
 		switch (action) {
 		    case PLAYER_ACTION_NEW: {
                 gm.banker_cards.push_back(random_card(random_gen));
@@ -184,14 +189,14 @@ namespace godapp {
         });
 
         if (gm.status == GAME_STATUS_STOOD) {
-            SEND_INLINE_ACTION(*this, close, {_self, name("active")}, make_tuple(gm.id) );
+            delayed_action(_self, player, name("close"), make_tuple(gm.id), 0);
         }
 	}
 
 	void blackjack::close(uint64_t id) {
 		require_auth(_self);
 
-		random random_gen;
+		random random_gen(id);
 		auto ct = current_time();
 
 		auto game_iter = _games.get_index<name("byid")>();
@@ -250,8 +255,12 @@ namespace godapp {
 			info = gm;
 		});
 
-        SEND_INLINE_ACTION(*this, receipt, {_self, name("active")},
-		        make_tuple(gm, cards_to_string(gm.banker_cards), cards_to_string(gm.player_cards), "normal close") );
+		char msg[128];
+		sprintf(msg, "[GoDapp] Blackjack game result: %s!", result_string(gm.result));
+		string result_message(msg);
+
+        delayed_action(_self, _self, name("receipt"), make_tuple(gm, cards_to_string(gm.banker_cards),
+        		cards_to_string(gm.player_cards), result_message), 0);
 
 		uint64_t history_index = increment_global_mod(_globals, G_ID_HISTORY_INDEX, GAME_MAX_HISTORY_SIZE);
 		table_upsert(_results, _self, history_index, [&](auto& info) {
@@ -269,9 +278,7 @@ namespace godapp {
             info.result = gm.result;
         });
 
-        char msg[128];
-        sprintf(msg, "[GoDapp] Blackjack game result: %s!", result_string(gm.result));
-		make_payment(_self, gm.player, gm.bet, payout, gm.referer, string(msg));
+		make_payment(_self, gm.player, gm.bet, payout, gm.referer, result_message);
 	}
 
 	/**
