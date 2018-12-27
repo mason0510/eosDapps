@@ -34,6 +34,8 @@ namespace godapp {
         init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
     }
 
+    DEFINE_SET_GLOBAL(dice)
+
     uint64_t reward_amount(asset bet_asset, uint8_t  bet_number) {
         return bet_asset.amount * (100 - HOUSE_EDGE) / bet_number;
     }
@@ -53,6 +55,8 @@ namespace godapp {
     }
 
     void dice::play(name player, asset bet_asset, uint8_t bet_number, name referer){
+        require_auth(_self);
+
         delayed_action(_self, name("resolve"), make_tuple(player, bet_asset, bet_number, referer));
     }
 
