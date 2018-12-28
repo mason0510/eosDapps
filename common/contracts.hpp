@@ -121,6 +121,9 @@ namespace godapp {
         eosio_assert(quantity.amount > 0, "Transfer amount not positive");
         eosio_assert(!memo.empty(), "Memo is required");
 
+        eosio::action act = eosio::get_action( 1, 0 );
+        eosio_assert(act.name == name("transfer"), "Contract not allowed");
+
         return true;
     }
 
