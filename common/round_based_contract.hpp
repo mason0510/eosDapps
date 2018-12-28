@@ -62,6 +62,7 @@ public: \
         ACTION init(); \
         ACTION setglobal(uint64_t key, uint64_t value); \
         ACTION play(name player, asset bet, string memo); \
+        ACTION resolve(uint64_t game_id); \
         ACTION reveal(uint64_t game_id); \
         ACTION hardclose(uint64_t game_id); \
         ACTION transfer(name from, name to, asset quantity, string memo); \
@@ -70,14 +71,7 @@ private: \
         void bet(name player, name referer, uint64_t game_id, uint8_t bet_type, asset amount); \
 
 
-#define STANDARD_ACTIONS (init)(reveal)(transfer)(setglobal)(hardclose)
-
-#define DEFINE_STANDARD_FUNCTIONS(NAME) \
-        DEFINE_INIT_FUNCTION(NAME) \
-        DEFINE_SET_GLOBAL(NAME) \
-        DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
-        DEFINE_TRANSFER_FUNCTION(NAME) \
-        DEFINE_HARDCLOSE_FUNCTION(NAME)
+#define STANDARD_ACTIONS (init)(reveal)(transfer)(resolve)(setglobal)(hardclose)
 
 
 #define DEFINE_INIT_FUNCTION(NAME) \
@@ -122,10 +116,7 @@ private: \
                     a.end_time = now() + GAME_LENGTH; \
                     a.status = GAME_STATUS_ACTIVE; \
                 }); \
-                transaction close_trx; \
-                close_trx.actions.emplace_back(permission_level{ _self, name("active") }, _self, name("reveal"), make_tuple(game_id)); \
-                close_trx.delay_sec = GAME_LENGTH; \
-                close_trx.send(from.value, _self); \
+                delayed_action(_self, _self, name("resolve"), make_tuple(game_id), GAME_LENGTH); \
                 break; \
             } \
             case GAME_STATUS_ACTIVE: \
@@ -145,6 +136,12 @@ private: \
         }); \
     }
 
+#define DEFINE_RESOLVE_FUNCTION(NAME) \
+    void NAME::resolve(uint64_t game_id) { \
+        require_auth(_self); \
+        delayed_action(_self, _self, name("reveal"), make_tuple(game_id)); \
+    }
+
 #define DEFINE_HARDCLOSE_FUNCTION(NAME) \
     void NAME::hardclose(uint64_t game_id) { \
         require_auth(_self); \
@@ -157,3 +154,11 @@ private: \
             a.end_time = now(); \
         }); \
     }
+
+#define DEFINE_STANDARD_FUNCTIONS(NAME) \
+        DEFINE_INIT_FUNCTION(NAME) \
+        DEFINE_SET_GLOBAL(NAME) \
+        DEFINE_RESOLVE_FUNCTION(NAME) \
+        DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
+        DEFINE_TRANSFER_FUNCTION(NAME) \
+        DEFINE_HARDCLOSE_FUNCTION(NAME)
