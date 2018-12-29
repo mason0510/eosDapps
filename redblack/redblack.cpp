@@ -20,7 +20,7 @@
 
 #define BET_RED_WIN                 1
 #define BET_BLACK_WIN               2
-#define BET_LUCKY_STRIKE            3
+#define BET_LUCKY_STRIKE            4
 
 // special case, small pair still counts as a pair in turns of hand comparison
 // but does not count as a lucky strike
@@ -223,7 +223,7 @@ namespace godapp {
                 largest_winner = itr;
                 win_amount = current.payout.amount;
             }
-            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[GoDapp] Dice game win!");
+            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[GoDapp] War of Stars win!");
         }
 
         uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
@@ -238,6 +238,9 @@ namespace godapp {
             a.black_cards = black_cards;
         });
 
+        if (lucky_rate > 0) {
+            result |= BET_LUCKY_STRIKE;
+        }
         uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE);
         table_upsert(_results, _self, result_index, [&](auto &a) {
             a.id = result_index;
