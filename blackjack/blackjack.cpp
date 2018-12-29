@@ -240,8 +240,13 @@ namespace godapp {
                     payout = gm.bet * 2;
                     gm.result = GAME_RESULT_WIN;
                 } else if (banker_points == player_points) {
-                    payout = gm.bet;
-                    gm.result = GAME_RESULT_PUSH;
+                    if (banker_points == GAME_MAX_POINTS && gm.banker_cards.size() == 2) {
+                        // banker blackjack, while player does not have one, lose
+                        gm.result = GAME_RESULT_LOSE;
+                    } else {
+                        payout = gm.bet;
+                        gm.result = GAME_RESULT_PUSH;
+                    }
                 } else {
                     gm.result = GAME_RESULT_LOSE;
                 }
@@ -254,13 +259,6 @@ namespace godapp {
 		game_iter.modify(gm_pos, _self, [&](auto& info) {
 			info = gm;
 		});
-
-		char msg[128];
-		sprintf(msg, "[GoDapp] Blackjack game result: %s!", result_string(gm.result));
-		string result_message(msg);
-
-        delayed_action(_self, _self, name("receipt"), make_tuple(gm, cards_to_string(gm.banker_cards),
-        		cards_to_string(gm.player_cards), result_message), 0);
 
 		uint64_t history_index = increment_global_mod(_globals, G_ID_HISTORY_INDEX, GAME_MAX_HISTORY_SIZE);
 		table_upsert(_results, _self, history_index, [&](auto& info) {
@@ -278,7 +276,8 @@ namespace godapp {
             info.result = gm.result;
         });
 
-		make_payment(_self, gm.player, gm.bet, payout, gm.referer, result_message);
+        delayed_action(_self, gm.player, name("pay"), make_tuple(gm,
+        		cards_to_string(gm.banker_cards), cards_to_string(gm.player_cards), payout));
 	}
 
 	/**
@@ -315,8 +314,14 @@ namespace godapp {
 		}
 	}
 
-	void blackjack::receipt(game_item gm, string banker_cards, string player_cards, string memo) {
+    void blackjack::pay(game_item gm, string banker_cards, string player_cards, asset payout) {
 		require_auth(_self);
 		require_recipient(gm.player);
+
+        char msg[128];
+        sprintf(msg, "[GoDapp] Blackjack game result: %s!", result_string(gm.result));
+        string result_message(msg);
+
+        make_payment(_self, gm.player, gm.bet, payout, gm.referer, result_message);
 	}
 };

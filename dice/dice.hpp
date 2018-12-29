@@ -39,8 +39,8 @@ namespace godapp {
         ACTION play(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referrer);
         ACTION resolve(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referrer);
 
-        ACTION receipt(uint64_t bet_id, name player, asset bet, asset payout, capi_checksum256 seed,
-                uint8_t bet_value, uint64_t roll_value);
+        ACTION pay(uint64_t bet_id, name player, asset bet, asset payout, capi_checksum256 seed,
+                uint8_t bet_value, uint64_t roll_value, name referer);
         ACTION transfer(name from, name to, asset quantity, string memo);
 
         dice(name receiver, name code, datastream<const char *> ds) :
@@ -49,5 +49,5 @@ namespace godapp {
         }
     };
 
-    EOSIO_ABI_EX(dice, (init)(transfer)(resolve)(play)(receipt))
+    EOSIO_ABI_EX(dice, (init)(transfer)(resolve)(play)(pay))
 }

@@ -75,12 +75,12 @@ namespace godapp {
         ACTION playeraction(name player, uint8_t action);
         ACTION hardclose(uint64_t game_id, string reason);
         ACTION cleargames(uint32_t num);
-        ACTION receipt(game_item gm, string banker_cards, string player_cards, string memo);
         ACTION close(uint64_t game_id);
         ACTION transfer(name from, name to, asset quantity, string memo);
+        ACTION pay(game_item gm, string banker_cards, string player_cards, asset payout);
     };
 
-    EOSIO_ABI_EX(blackjack, (init)(deal)(playeraction)(play)(close)(hardclose)(cleargames)(receipt)(setglobal)(transfer))
+    EOSIO_ABI_EX(blackjack, (init)(deal)(playeraction)(play)(close)(hardclose)(cleargames)(setglobal)(transfer)(pay))
 }
 
 

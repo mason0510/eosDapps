@@ -75,9 +75,6 @@ namespace godapp {
             payout = asset(0, bet_asset.symbol);
         }
 
-        make_payment(_self, player, bet_asset, payout, referer,
-                payout.amount > 0 ? "[GoDapp] Dice game win!" : "[GoDapp] Dice game lose!");
-
         eosio::time_point_sec time = eosio::time_point_sec( _now );
         uint64_t history_index = increment_global_mod(_globals, GLOBAL_ID_HISTORY_INDEX, BET_HISTORY_LEN);
 
@@ -95,12 +92,15 @@ namespace godapp {
             a.roll_value = roll_value;
             a.time = time;
         });
-        delayed_action(_self, _self, name("receipt"), make_tuple(bet_id, player, bet_asset, payout, seed, bet_number, roll_value), 0);
+        delayed_action(_self, player, name("pay"), make_tuple(bet_id, player, bet_asset, payout, seed, bet_number, roll_value, referer), 0);
     }
 
-    void dice::receipt(uint64_t bet_id, name player, asset bet, asset payout,
-            capi_checksum256 seed, uint8_t bet_value, uint64_t roll_value) {
+    void dice::pay(uint64_t bet_id, name player, asset bet, asset payout,
+            capi_checksum256 seed, uint8_t bet_value, uint64_t roll_value, name referer) {
         require_auth(_self);
         require_recipient( player );
+
+        make_payment(_self, player, bet, payout, referer,
+                     payout.amount > 0 ? "[GoDapp] Dice game win!" : "[GoDapp] Dice game lose!");
     }
 }
