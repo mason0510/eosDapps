@@ -64,6 +64,7 @@ public: \
         ACTION play(name player, asset bet, string memo); \
         ACTION resolve(uint64_t game_id); \
         ACTION reveal(uint64_t game_id); \
+        ACTION newround(symbol symbol_type); \
         ACTION hardclose(uint64_t game_id); \
         ACTION transfer(name from, name to, asset quantity, string memo); \
 private: \
@@ -71,7 +72,7 @@ private: \
         void bet(name player, name referer, uint64_t game_id, uint8_t bet_type, asset amount); \
 
 
-#define STANDARD_ACTIONS (init)(reveal)(transfer)(resolve)(setglobal)(hardclose)
+#define STANDARD_ACTIONS (init)(reveal)(transfer)(resolve)(newround)(setglobal)(hardclose)
 
 
 #define DEFINE_INIT_FUNCTION(NAME) \

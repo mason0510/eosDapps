@@ -12,7 +12,7 @@
 #define G_ID_END                    103
 
 #define GAME_LENGTH                 20
-#define GAME_RESOLVE_TIME           5
+#define GAME_RESOLVE_TIME           10
 
 #define RESULT_SIZE                 50
 
@@ -162,6 +162,20 @@ namespace godapp {
         }
     }
 
+    void redblack::newround(symbol symbol_type) {
+        require_auth(_self);
+
+        uint32_t timestamp = now();
+        auto game_iter = _games.find(symbol_type.raw());
+        eosio_assert(game_iter->status == GAME_STATUS_STANDBY, "Round already started");
+        eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait");
+        _games.modify(game_iter, _self, [&](auto &a) {
+            a.end_time = now() + GAME_LENGTH;
+            a.status = GAME_STATUS_ACTIVE;
+        });
+        delayed_action(_self, _self, name("resolve"), make_tuple(game_iter->id), GAME_LENGTH);
+    }
+
     void redblack::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
                 return;
@@ -178,12 +192,7 @@ namespace godapp {
         uint8_t status = game_iter->status;
         switch (status) {
             case GAME_STATUS_STANDBY: {
-                eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait");
-                _games.modify(game_iter, _self, [&](auto &a) {
-                    a.end_time = now() + GAME_LENGTH;
-                    a.status = GAME_STATUS_ACTIVE;
-                });
-                delayed_action(_self, _self, name("resolve"), make_tuple(game_id), GAME_LENGTH);
+                SEND_INLINE_ACTION(*this, newround, {_self, name("active")}, {quantity.symbol});
                 break;
             }
             case GAME_STATUS_ACTIVE:
@@ -299,5 +308,7 @@ namespace godapp {
             a.game_id = game_id;
             a.result = result;
         });
+
+        delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME);
     }
 };
