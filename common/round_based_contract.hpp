@@ -94,47 +94,6 @@ private: \
         } \
     }
 
-#define DEFINE_TRANSFER_FUNCTION(NAME) \
-     void NAME::transfer(name from, name to, asset quantity, string memo) { \
-        if (!check_transfer(this, from, to, quantity, memo)) { \
-                return; \
-        }; \
-        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")}, \
-            {_self, HOUSE_ACCOUNT, quantity, from.to_string()}); \
-        param_reader reader(memo); \
-        auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() ); \
-        auto bet_type = (uint8_t) atoi( reader.next_param("Bet type cannot be empty!").c_str() ); \
-        name referer = reader.get_referer(from); \
-        auto game_iter = _games.find(quantity.symbol.raw()); \
-        eosio_assert(game_iter->id == game_id, "Game is no longer active"); \
-        uint32_t timestamp = now(); \
-        uint8_t status = game_iter->status; \
-        switch (status) { \
-            case GAME_STATUS_STANDBY: { \
-                eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait"); \
-                _games.modify(game_iter, _self, [&](auto &a) { \
-                    a.end_time = now() + GAME_LENGTH; \
-                    a.status = GAME_STATUS_ACTIVE; \
-                }); \
-                delayed_action(_self, _self, name("resolve"), make_tuple(game_id), GAME_LENGTH); \
-                break; \
-            } \
-            case GAME_STATUS_ACTIVE: \
-                eosio_assert(timestamp < game_iter->end_time, "Game already finished, please wait for next round"); \
-                break; \
-            default: \
-                eosio_assert(false, "Invalid game state"); \
-        } \
-        uint64_t next_bet_id = increment_global(_globals, G_ID_BET_ID); \
-        _bets.emplace(_self, [&](auto &a) { \
-            a.id = next_bet_id; \
-            a.game_id = game_id; \
-            a.player = from; \
-            a.referer = referer; \
-            a.bet = quantity; \
-            a.bet_type = bet_type; \
-        }); \
-    }
 
 #define DEFINE_RESOLVE_FUNCTION(NAME) \
     void NAME::resolve(uint64_t game_id) { \
@@ -160,5 +119,4 @@ private: \
         DEFINE_SET_GLOBAL(NAME) \
         DEFINE_RESOLVE_FUNCTION(NAME) \
         DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
-        DEFINE_TRANSFER_FUNCTION(NAME) \
         DEFINE_HARDCLOSE_FUNCTION(NAME)
