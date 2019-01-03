@@ -55,6 +55,23 @@ namespace godapp {
 	    return result % 10;
 	}
 
+	string result_to_string(uint8_t result) {
+        switch (result) {
+            case BET_BANKER_WIN:
+                return "Banker Wins";
+            case BET_PLAYER_WIN:
+                return "Player Wins";
+            case BET_TIE:
+                return "Tie";
+            case BET_DRAGON:
+                return "Dragon 7";
+            case BET_PANDA:
+                return "Panda 8";
+            default:
+                return "";
+        }
+    }
+
 	bool banker_draw_third_card(uint8_t banker_point, uint8_t player_third_card) {
         switch (banker_point) {
             case 0:
@@ -179,5 +196,13 @@ namespace godapp {
         });
 
         delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME);
+
+        SEND_INLINE_ACTION(*this, receipt, {_self, name("active")},
+                {game_id, cards_to_string(player_cards), player_point, cards_to_string(banker_cards), banker_point, result_to_string(result)});
+    }
+
+    void baccarat::receipt(uint64_t game_id, string player_cards, uint8_t player_point, string banker_cards, uint8_t banker_point, string result) {
+        require_auth(_self);
+        require_recipient(_self);
     }
 };
