@@ -95,11 +95,16 @@ namespace godapp {
         uint8_t banker_point = cards_point(banker_cards);
         uint8_t player_point = cards_point(player_cards);
 
-        if (banker_point < 8 && player_point < 6) {
-            uint8_t player_third_card = card_point(add_card(random_gen, player_cards, cards, NUM_CARDS));
-            player_point = cards_point(player_cards);
+        if (banker_point < 8 && player_point < 8) {
+            if (player_point < 6) {
+                uint8_t player_third_card = card_point(add_card(random_gen, player_cards, cards, NUM_CARDS));
+                player_point = cards_point(player_cards);
 
-            if (banker_draw_third_card(banker_point, player_third_card)) {
+                if (banker_draw_third_card(banker_point, player_third_card)) {
+                    add_card(random_gen, banker_cards, cards, NUM_CARDS);
+                    banker_point = cards_point(banker_cards);
+                }
+            } else if (banker_point < 6) {
                 add_card(random_gen, banker_cards, cards, NUM_CARDS);
                 banker_point = cards_point(banker_cards);
             }
