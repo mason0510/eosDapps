@@ -11,7 +11,7 @@
 #define G_ID_BET_ID                 103
 #define G_ID_END                    103
 
-#define GAME_LENGTH                 40
+#define GAME_LENGTH                 30
 #define GAME_RESOLVE_TIME           15
 
 #define NUM_CARDS                   52 * 8
