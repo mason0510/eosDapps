@@ -11,8 +11,8 @@
 #define G_ID_BET_ID                 103
 #define G_ID_END                    103
 
-#define GAME_LENGTH                 20
-#define GAME_RESOLVE_TIME           10
+#define GAME_LENGTH                 40
+#define GAME_RESOLVE_TIME           15
 
 #define RESULT_SIZE                 50
 
