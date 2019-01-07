@@ -85,7 +85,6 @@ private: \
 
 #define DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
     void NAME::initsymbol(symbol sym) { \
-        require_auth(_self); \
         auto iter = _games.find(sym.raw()); \
         if (iter == _games.end()) { \
             uint64_t next_id = increment_global(_globals, G_ID_GAME_ID); \
