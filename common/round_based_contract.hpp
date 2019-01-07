@@ -1,6 +1,7 @@
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/print.hpp>
 #include "contracts.hpp"
+#include "game_contracts.hpp"
 
 #define GAME_STATUS_STANDBY         1
 #define GAME_STATUS_ACTIVE          2
@@ -84,6 +85,7 @@ private: \
 
 #define DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
     void NAME::initsymbol(symbol sym) { \
+        require_auth(_self); \
         auto iter = _games.find(sym.raw()); \
         if (iter == _games.end()) { \
             uint64_t next_id = increment_global(_globals, G_ID_GAME_ID); \
@@ -133,8 +135,7 @@ private: \
         if (!check_transfer(this, from, to, quantity, memo)) { \
             return; \
         }; \
-        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {_self, name("active")}, \
-            {_self, HOUSE_ACCOUNT, quantity, from.to_string()}); \
+        transfer_to_house(_self, quantity, from, quantity.amount); \
         param_reader reader(memo); \
         auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() ); \
         auto referer = reader.get_referer(from); \
