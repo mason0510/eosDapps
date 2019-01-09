@@ -70,7 +70,6 @@ public: \
         ACTION transfer(name from, name to, asset quantity, string memo); \
 private: \
         void initsymbol(symbol sym); \
-        void bet(name player, name referer, uint64_t game_id, uint8_t bet_type, asset amount); \
 
 
 #define STANDARD_ACTIONS (init)(reveal)(transfer)(resolve)(newround)(setglobal)(hardclose)
@@ -104,7 +103,7 @@ private: \
         eosio_assert(game_iter->status == GAME_STATUS_STANDBY, "Round already started"); \
         eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait"); \
         _games.modify(game_iter, _self, [&](auto &a) { \
-            a.end_time = now() + GAME_LENGTH; \
+            a.end_time = timestamp + GAME_LENGTH; \
             a.status = GAME_STATUS_ACTIVE; \
         }); \
         delayed_action(_self, _self, name("resolve"), make_tuple(game_iter->id), GAME_LENGTH); \

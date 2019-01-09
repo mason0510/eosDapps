@@ -72,6 +72,17 @@ namespace godapp {
         return suit == card_suit(hand[1]) && suit == card_suit(hand[2]);
     }
 
+    string result_to_string(uint8_t result) {
+        switch (result) {
+            case BET_RED_WIN:
+                return "Red Win";
+            case BET_BLACK_WIN:
+                return "Blue Win";
+            default:
+                return "Tie";
+        }
+    }
+
     /**
      * preprocess the points in a hand to convert them to points, and sort based on the point value
      */
@@ -237,7 +248,11 @@ namespace godapp {
             a.black_cards = black_cards;
         });
 
-        if (lucky_rate > 0) {
+        bool lucky_strike = lucky_rate > 0;
+        SEND_INLINE_ACTION(*this, receipt, {_self, name("active")},
+                           {game_id, cards_to_string(red_cards), cards_to_string(black_cards), result_to_string(result), lucky_strike});
+
+        if (lucky_strike) {
             result |= BET_LUCKY_STRIKE;
         }
         uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE);
@@ -248,5 +263,10 @@ namespace godapp {
         });
 
         delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME);
+    }
+
+    void redblack::receipt(uint64_t game_id, string red_cards, string blue_cards, string result, bool lucky_strike) {
+        require_auth(_self);
+        require_recipient(_self);
     }
 };
