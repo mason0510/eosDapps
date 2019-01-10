@@ -47,6 +47,19 @@
         > bet_table; \
         bet_table _bets;
 
+#define DEFINE_HISTORY_TABLE \
+        TABLE history { \
+            uint64_t id; \
+            uint64_t history_id; \
+            name player; \
+            asset bet; \
+            uint8_t bet_type; \
+            asset payout; \
+            uint64_t close_time; \
+            uint64_t primary_key() const { return id; } \
+        }; \
+        typedef multi_index<name("history"), history> history_table; \
+
 #define DEFINE_RESULTS_TABLE \
         TABLE result { \
             uint64_t id; \
@@ -78,7 +91,6 @@ private: \
 #define DEFINE_INIT_FUNCTION(NAME) \
     void NAME::init() { \
         require_auth(HOUSE_ACCOUNT); \
-        init_globals(_globals, G_ID_START, G_ID_END); \
         initsymbol(EOS_SYMBOL); \
     }
 

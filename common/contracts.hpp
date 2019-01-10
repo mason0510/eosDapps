@@ -3,6 +3,7 @@
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/transaction.hpp>
 #include "./constants.hpp"
+#include "tables.hpp"
 
 #include <string>
 
@@ -35,16 +36,20 @@ namespace godapp {
 
     template<typename T>
     void set_global(T& globals, uint64_t key, uint64_t value) {
-        auto iter = globals.find(key);
-
-        globals.modify(iter, globals.get_code(), [&](auto& a) {
+        table_upsert(globals, globals.get_code(), key, [&](auto& a) {
+            a.id = key;
             a.val = value;
         });
     }
 
     template<typename T>
-    uint64_t get_global(T& globals, uint64_t key) {
-        return globals.get(key, "global value does not exist").val;
+    uint64_t get_global(T& globals, uint64_t key, uint64_t default_value = 0) {
+        auto iter = globals.find(key);
+        if (iter == globals.end()) {
+            return default_value;
+        } else {
+            return iter->val;
+        }
     }
 
     template<typename T, typename Lambda>
@@ -59,22 +64,36 @@ namespace godapp {
     template<typename T>
     uint64_t increment_global(T& globals, uint64_t key) {
         auto iter = globals.find(key);
-        auto result = iter->val + 1;
-
-        globals.modify(iter, globals.get_code(), [&](auto& a) {
-            a.val = result;
-        });
+        uint64_t result = 1;
+        if (iter != globals.end()) {
+            result = iter->val + 1;
+            globals.modify(iter, globals.get_code(), [&](auto& a) {
+                a.val = result;
+            });
+        } else {
+            globals.emplace(globals.get_code(), [&](auto& a) {
+                a.id = key;
+                a.val = result;
+            });
+        }
         return result;
     }
 
     template<typename T>
     uint64_t increment_global_mod(T& globals, uint64_t key, uint64_t mod) {
         auto iter = globals.find(key);
-        auto result = (iter->val + 1) % mod;
-
-        globals.modify(iter, globals.get_code(), [&](auto& a) {
-            a.val = result;
-        });
+        uint64_t result = 1;
+        if (iter != globals.end()) {
+            result = (iter->val + 1) % mod;
+            globals.modify(iter, globals.get_code(), [&](auto& a) {
+                a.val = result;
+            });
+        } else {
+            globals.emplace(globals.get_code(), [&](auto& a) {
+                a.id = key;
+                a.val = result;
+            });
+        }
         return result;
     }
 
