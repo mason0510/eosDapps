@@ -6,12 +6,11 @@
 #define GAME_STATUS_STANDBY         1
 #define GAME_STATUS_ACTIVE          2
 
-#define DEFINE_GAMES_TABLE(TYPE, LEFT, RIGHT)  \
+#define DEFINE_GAMES_TABLE(GAME_DATA)  \
         TABLE game { \
             uint64_t id; \
             uint64_t end_time; \
-            TYPE LEFT; \
-            TYPE RIGHT; \
+            GAME_DATA \
             symbol symbol; \
             uint8_t status; \
             name largest_winner; \

@@ -19,7 +19,7 @@ namespace godapp {
     CONTRACT redblack: public contract {
     public:
         DEFINE_GLOBAL_TABLE
-        DEFINE_GAMES_TABLE(vector<card_t>, red_cards, black_cards)
+        DEFINE_GAMES_TABLE(vector<card_t> red_cards; vector<card_t> black_cards;)
         DEFINE_BETS_TABLE
         DEFINE_RESULTS_TABLE
         DEFINE_HISTORY_TABLE
