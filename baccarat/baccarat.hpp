@@ -22,6 +22,7 @@ namespace godapp {
         DEFINE_GAMES_TABLE(vector<card_t>, player_cards, banker_cards)
         DEFINE_BETS_TABLE
         DEFINE_RESULTS_TABLE
+        DEFINE_HISTORY_TABLE
 
         ACTION receipt(uint64_t game_id, string player_cards, uint8_t player_point, string banker_cards, uint8_t banker_point, string result);
         DEFINE_STANDARD_ACTIONS(baccarat)

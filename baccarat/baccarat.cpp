@@ -9,13 +9,15 @@
 #define G_ID_RESULT_ID              101
 #define G_ID_GAME_ID                102
 #define G_ID_BET_ID                 103
-#define G_ID_END                    103
+#define G_ID_HISTORY_ID             104
+#define G_ID_END                    104
 
 #define GAME_LENGTH                 30
 #define GAME_RESOLVE_TIME           15
 
 #define NUM_CARDS                   52 * 8
 #define RESULT_SIZE                 50
+#define HISTORY_SIZE                40
 
 #define BET_BANKER_WIN              1
 #define BET_PLAYER_WIN              2
@@ -146,14 +148,29 @@ namespace godapp {
 
         uint8_t* payout_array = PAYOUT_MATRIX[result - 1];
 
+        history_table history(_self, _self.value);
+        uint64_t history_id = get_global(_globals, G_ID_HISTORY_ID);
+
         map<uint64_t, pay_result> result_map;
         auto bet_index = _bets.get_index<name("bygameid")>();
         for (auto itr = bet_index.begin(); itr != bet_index.end();) {
             uint8_t bet_type = itr->bet_type;
             asset bet = itr->bet;
-            uint8_t rate = payout_array[bet_type - 1];
-            if (rate > 0) {
-                asset payout = bet * rate;
+            asset payout = bet * payout_array[bet_type - 1];
+
+            history_id++;
+            uint64_t id = history_id % HISTORY_SIZE;
+            table_upsert(history, _self, id, [&](auto &a) {
+                a.id = id;
+                a.history_id = history_id;
+                a.player = itr->player;
+                a.bet = bet;
+                a.bet_type = bet_type;
+                a.payout = payout;
+                a.close_time = timestamp;
+            });
+
+            if (payout.amount > 0) {
                 auto result_itr = result_map.find(itr->player.value);
                 if (result_itr == result_map.end()) {
                     result_map[itr->player.value] = pay_result{bet, payout, itr->referer};
@@ -164,6 +181,7 @@ namespace godapp {
             }
             itr = bet_index.erase(itr);
         }
+        set_global(_globals, G_ID_HISTORY_ID, history_id);
 
         auto largest_winner = result_map.end();
         int64_t win_amount = 0;
