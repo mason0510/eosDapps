@@ -14,13 +14,11 @@ namespace godapp {
             T content;
             int block;
             int prefix;
-            uint64_t time;
 
             data(T t) {
                 content = t;
                 block = tapos_block_num();
                 prefix = tapos_block_prefix();
-                time = current_time();
             }
         };
 
