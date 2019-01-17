@@ -12,8 +12,8 @@
 #define G_ID_HISTORY_ID             104
 #define G_ID_END                    104
 
-#define GAME_LENGTH                 30
-#define GAME_RESOLVE_TIME           15
+#define GAME_LENGTH                 45
+#define GAME_RESOLVE_TIME           20
 
 #define NUM_CARDS                   52 * 8
 #define RESULT_SIZE                 50
@@ -187,11 +187,13 @@ namespace godapp {
         int64_t win_amount = 0;
         for (auto itr = result_map.begin(); itr != result_map.end(); itr++) {
             auto current = itr->second;
-            if (current.payout.amount > win_amount && current.payout.symbol == EOS_SYMBOL) {
+            if (current.payout.amount > current.bet.amount &&
+                current.payout.amount > win_amount &&
+                current.payout.symbol == EOS_SYMBOL) {
                 largest_winner = itr;
                 win_amount = current.payout.amount;
             }
-            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[GoDapp] Baccarat win!");
+            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[Dapp365] Baccarat win!");
         }
 
         uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
