@@ -175,7 +175,7 @@ namespace godapp {
         }
     }
 
-    void redblack::reveal(uint64_t game_id) {
+    void redblack::reveal(uint64_t game_id, uint64_t seed) {
         require_auth(_self);
 
         auto idx = _games.get_index<name("byid")>();
@@ -253,7 +253,6 @@ namespace godapp {
             }
             make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[GoDapp] War of Stars win!");
         }
-
         uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
         name winner_name = largest_winner == result_map.end() ? name() : name(largest_winner->first);
         idx.modify(gm_pos, _self, [&](auto &a) {
@@ -267,8 +266,8 @@ namespace godapp {
         });
 
         bool lucky_strike = lucky_rate > 0;
-        SEND_INLINE_ACTION(*this, receipt, {_self, name("active")},
-                           {game_id, cards_to_string(red_cards), cards_to_string(black_cards), result_to_string(result), lucky_strike});
+        SEND_INLINE_ACTION(*this, receipt, {_self, name("active")}, {game_id, seed, gm_pos->player_block, gm_pos->player_prefix,
+             cards_to_string(red_cards), cards_to_string(black_cards), result_to_string(result), lucky_strike});
 
         if (lucky_strike) {
             result |= BET_LUCKY_STRIKE;
@@ -279,11 +278,10 @@ namespace godapp {
             a.game_id = game_id;
             a.result = result;
         });
-
-        delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME);
     }
 
-    void redblack::receipt(uint64_t game_id, string red_cards, string blue_cards, string result, bool lucky_strike) {
+    void redblack::receipt(uint64_t game_id, uint64_t seed, int player_block, int player_prefix, string red_cards,
+            string blue_cards, string result, bool lucky_strike) {
         require_auth(_self);
         require_recipient(_self);
     }

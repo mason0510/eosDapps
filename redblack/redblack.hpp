@@ -24,7 +24,8 @@ namespace godapp {
         DEFINE_RESULTS_TABLE
         DEFINE_HISTORY_TABLE
 
-        ACTION receipt(uint64_t game_id, string red_cards, string blue_cards, string result, bool lucky_strike);
+        ACTION receipt(uint64_t game_id, uint64_t seed, int player_block, int player_prefix,
+                string red_cards, string blue_cards, string result, bool lucky_strike);
         DEFINE_STANDARD_ACTIONS(redblack)
     };
 

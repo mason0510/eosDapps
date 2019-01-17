@@ -15,10 +15,10 @@ namespace godapp {
             int block;
             int prefix;
 
-            data(T t) {
+            data(T t, int block_in = tapos_block_num(), int prefix_in = tapos_block_prefix()) {
                 content = t;
-                block = tapos_block_num();
-                prefix = tapos_block_prefix();
+                block = block_in;
+                prefix = prefix_in;
             }
         };
 
@@ -29,6 +29,7 @@ namespace godapp {
 
     public:
         random(uint64_t mixed = 0);
+        random(uint64_t seed, capi_checksum256 seed_hash, int block, int prefix);
         ~random();
 
         template<class T>
@@ -53,14 +54,18 @@ namespace godapp {
         capi_checksum256 get_seed() const;
 
     private:
-        capi_checksum256 _sseed;
-        capi_checksum256 _useed;
-        capi_checksum256 _mixed;
         capi_checksum256 _seed;
     };
 
     random::random(uint64_t mixed) {
         update_seed_from_tx(mixed);
+    }
+
+    random::random(uint64_t seed, capi_checksum256 seed_hash, int block, int prefix) {
+        assert_sha256((char *)&seed, sizeof(seed), &seed_hash);
+        data<uint64_t> seed_data(seed, block, prefix);
+        const char *mixed_char = reinterpret_cast<const char *>(&seed_data);
+        sha256((char *) mixed_char, sizeof(seed_data), &_seed);
     }
 
     random::~random() {}
@@ -75,10 +80,7 @@ namespace godapp {
     }
 
     void random::seed(capi_checksum256 sseed, capi_checksum256 useed) {
-        _sseed = sseed;
-        _useed = useed;
-        mixseed(_sseed, _useed, _mixed);
-        _seed = _mixed;
+        mixseed(_seed, sseed, useed);
     }
 
     void random::update_seed_from_tx(uint64_t mixed) {
@@ -101,10 +103,7 @@ namespace godapp {
     }
 
     uint64_t random::generator(uint64_t max) {
-        mixseed(_mixed, _seed, _seed);
-
         uint64_t r = gen(_seed, max);
-
         return r;
     }
 

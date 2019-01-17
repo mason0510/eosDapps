@@ -13,12 +13,15 @@
             GAME_DATA \
             symbol symbol; \
             uint8_t status; \
+            capi_checksum256 seed_hash; \
+            int player_block; \
+            int player_prefix; \
             name largest_winner; \
             asset largest_win_amount; \
             uint64_t primary_key() const { return symbol.raw(); } \
             uint64_t byid()const {return id;} \
         }; \
-        typedef multi_index<name("gametable"), game, \
+        typedef multi_index<name("game"), game, \
             indexed_by< name("byid"), const_mem_fun<game, uint64_t, &game::byid> > \
         > games_table; \
         games_table _games; \
@@ -76,15 +79,15 @@ public: \
         ACTION setglobal(uint64_t key, uint64_t value); \
         ACTION play(name player, asset bet, string memo); \
         ACTION resolve(uint64_t game_id); \
-        ACTION reveal(uint64_t game_id); \
-        ACTION newround(symbol symbol_type); \
+        ACTION reveal(uint64_t game_id, uint64_t seed); \
+        ACTION newround(symbol symbol_type, capi_checksum256 seed_hash); \
         ACTION hardclose(uint64_t game_id); \
         ACTION transfer(name from, name to, asset quantity, string memo); \
 private: \
         void initsymbol(symbol sym); \
 
 
-#define STANDARD_ACTIONS (init)(reveal)(transfer)(resolve)(newround)(setglobal)(hardclose)
+#define STANDARD_ACTIONS (init)(reveal)(transfer)(newround)(setglobal)(hardclose)
 
 
 #define DEFINE_INIT_FUNCTION(NAME) \
@@ -107,7 +110,7 @@ private: \
     }
 
 #define DEFINE_NEW_ROUND_FUNCTION(NAME) \
-    void NAME::newround(symbol symbol_type) { \
+    void NAME::newround(symbol symbol_type, capi_checksum256 seed_hash) { \
         require_auth(_self); \
         uint32_t timestamp = now(); \
         auto game_iter = _games.find(symbol_type.raw()); \
@@ -116,14 +119,11 @@ private: \
         _games.modify(game_iter, _self, [&](auto &a) { \
             a.end_time = timestamp + GAME_LENGTH; \
             a.status = GAME_STATUS_ACTIVE; \
+            a.player_block = 0; \
+            a.player_prefix = 0; \
+            a.seed_hash = seed_hash; \
         }); \
         delayed_action(_self, _self, name("resolve"), make_tuple(game_iter->id), GAME_LENGTH); \
-    }
-
-#define DEFINE_RESOLVE_FUNCTION(NAME) \
-    void NAME::resolve(uint64_t game_id) { \
-        require_auth(_self); \
-        delayed_action(_self, _self, name("reveal"), make_tuple(game_id)); \
     }
 
 #define DEFINE_HARDCLOSE_FUNCTION(NAME) \
@@ -154,7 +154,7 @@ private: \
         uint8_t status = game_iter->status; \
         switch (status) { \
             case GAME_STATUS_STANDBY: { \
-                SEND_INLINE_ACTION(*this, newround, {_self, name("active")}, {quantity.symbol}); \
+                eosio_assert(false, "Game round not active, please wait"); \
                 break; \
             } \
             case GAME_STATUS_ACTIVE: \
@@ -162,6 +162,12 @@ private: \
                 break; \
             default: \
                 eosio_assert(false, "Invalid game state"); \
+        } \
+        if(game_iter->player_block == 0) { \
+            _games.modify(game_iter, _self, [&](auto &a) { \
+                a.player_block = tapos_block_num(); \
+                a.player_prefix = tapos_block_prefix(); \
+            }); \
         } \
         asset total = asset(0, quantity.symbol); \
         while(reader.has_next()) { \
@@ -187,7 +193,6 @@ private: \
 #define DEFINE_STANDARD_FUNCTIONS(NAME) \
         DEFINE_INIT_FUNCTION(NAME) \
         DEFINE_SET_GLOBAL(NAME) \
-        DEFINE_RESOLVE_FUNCTION(NAME) \
         DEFINE_NEW_ROUND_FUNCTION(NAME) \
         DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
         DEFINE_HARDCLOSE_FUNCTION(NAME) \
