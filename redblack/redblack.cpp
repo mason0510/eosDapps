@@ -230,14 +230,12 @@ namespace godapp {
                 a.close_time = timestamp;
             });
 
-            if (payout.amount > 0) {
-                auto result_itr = result_map.find(itr->player.value);
-                if (result_itr == result_map.end()) {
-                    result_map[itr->player.value] = pay_result{bet, payout, itr->referer};
-                } else {
-                    result_itr->second.bet += bet;
-                    result_itr->second.payout += payout;
-                }
+            auto result_itr = result_map.find(itr->player.value);
+            if (result_itr == result_map.end()) {
+                result_map[itr->player.value] = pay_result{bet, payout, itr->referer};
+            } else {
+                result_itr->second.bet += bet;
+                result_itr->second.payout += payout;
             }
             itr = bet_index.erase(itr);
         }
