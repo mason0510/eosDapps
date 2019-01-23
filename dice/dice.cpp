@@ -29,6 +29,13 @@ using namespace std;
 using namespace eosio;
 
 namespace godapp {
+    dice::dice(name receiver, name code, datastream<const char *> ds) :
+    contract(receiver, code, ds),
+    _globals(_self, _self.value),
+    _random_keys(_self, _self.value),
+    _active_bets(_self, _self.value) {
+    }
+
     void dice::init() {
         require_auth(HOUSE_ACCOUNT);
         init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
@@ -36,9 +43,23 @@ namespace godapp {
 
     DEFINE_SET_GLOBAL(dice)
 
-    uint64_t reward_amount(asset bet_asset, uint8_t  bet_number) {
-        return bet_asset.amount * (100 - HOUSE_EDGE) / bet_number;
+    void dice::setrandkey(capi_public_key randomness_key){
+        require_auth(_self);
+
+        table_upsert(_random_keys, _self, 0, [&](auto& k){
+            k.key = randomness_key;
+        });
     }
+
+    asset reward_amount(asset bet_asset, uint8_t bet_number) {
+        return bet_asset * (100 - HOUSE_EDGE) / bet_number;
+    }
+
+    struct seed_data {
+        uint64_t game_id;
+        int block_number;
+        int block_prefix;
+    };
 
     void dice::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
@@ -48,41 +69,60 @@ namespace godapp {
         param_reader reader(memo);
         auto bet_number = reader.next_param_i("Roll prediction cannot be empty!");
         eosio_assert(bet_number >= MIN_BET && bet_number <= MAX_BET, "bet number must between 1 to 97");
-        transfer_to_house(_self, quantity, from, reward_amount(quantity, bet_number));
+        transfer_to_house(_self, quantity, from, reward_amount(quantity, bet_number).amount);
+
+        uint32_t _now = now();
+        eosio::time_point_sec time = eosio::time_point_sec( _now );
 
         name referer = reader.get_referer(from);
         uint64_t bet_id = increment_global(_globals, GLOBAL_ID_BET);
-        delayed_action(_self, from, name("play"), make_tuple(bet_id, from, quantity, bet_number, referer));
+
+        capi_checksum256 seed;
+        seed_data data{bet_id, tapos_block_num(), tapos_block_prefix()};
+        sha256( (char *)&data.game_id, sizeof(data), &seed);
+
+        _active_bets.emplace(_self, [&](auto& a){
+            a.id = bet_id;
+            a.player = from;
+            a.referer = referer;
+            a.bet_asset = quantity;
+            a.seed = seed;
+            a.bet_number = bet_number;
+            a.time = time;
+        });
     }
 
-    void dice::play(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referer){
-        require_auth(_self);
-        delayed_action(_self, player, name("resolve"), make_tuple(bet_id, player, bet_asset, bet_number, referer));
-    }
+    void dice::resolve(uint64_t bet_id, capi_signature sig){
+        auto activebets_itr = _active_bets.find( bet_id );
+        eosio_assert(activebets_itr != _active_bets.end(), "Bet doesn't exist");
 
-    void dice::resolve(uint64_t bet_id, name player, asset bet_asset, uint8_t bet_number, name referer){
-        require_auth(_self);
+        auto key_entry = _random_keys.get(0);
+        capi_public_key rand_signing_key = key_entry.key;
+        assert_recover_key(&activebets_itr->seed, (const char *)&sig, sizeof(sig),
+                (const char *)&rand_signing_key, sizeof(rand_signing_key));
 
-        random random_gen(bet_id);
-        uint64_t roll_value = random_gen.generator(MAX_ROLL_NUM);
-        capi_checksum256 seed = random_gen.get_seed();
+        capi_checksum256 random_num_hash;
+        sha256( (char *)&sig, sizeof(sig), &random_num_hash );
+        uint64_t roll_value = (random_num_hash.hash[0] + random_num_hash.hash[1] + random_num_hash.hash[2] + random_num_hash.hash[3]
+                + random_num_hash.hash[4] + random_num_hash.hash[5] + random_num_hash.hash[6] + random_num_hash.hash[7]) % MAX_ROLL_NUM;
 
         asset payout;
-        uint32_t _now = now();
-        if (roll_value < bet_number) {
-            payout = asset(reward_amount(bet_asset, bet_number), bet_asset.symbol);
+        asset bet_asset = activebets_itr->bet_asset;
+        uint8_t bet_number = activebets_itr->bet_number;
+        name player = activebets_itr->player;
+
+        if (roll_value < activebets_itr->bet_number) {
+            payout = reward_amount(bet_asset, bet_number);
         } else {
-            payout = asset(0, bet_asset.symbol);
+            payout = bet_asset * 0;
         }
 
-        eosio::time_point_sec time = eosio::time_point_sec( _now );
         uint64_t history_index = increment_global_mod(_globals, GLOBAL_ID_HISTORY_INDEX, BET_HISTORY_LEN);
-
         bet_index bets(_self, _self.value);
         table_upsert(bets, _self, history_index, [&](auto& a) {
             a.id = history_index;
             a.bet_id = bet_id;
-            a.player = player;
+            a.player = activebets_itr->player;
 
             a.sym = bet_asset.symbol;
             a.bet = (uint64_t) bet_asset.amount;
@@ -90,9 +130,11 @@ namespace godapp {
 
             a.bet_value = bet_number;
             a.roll_value = roll_value;
-            a.time = time;
+            a.time = activebets_itr->time;
         });
-        delayed_action(_self, player, name("pay"), make_tuple(bet_id, player, bet_asset, payout, seed, bet_number, roll_value, referer), 0);
+        delayed_action(_self, player, name("pay"), make_tuple(bet_id, player, bet_asset, payout, activebets_itr->seed,
+                bet_number, roll_value, activebets_itr->referer), 0);
+        _active_bets.erase(activebets_itr);
     }
 
     void dice::pay(uint64_t bet_id, name player, asset bet, asset payout,
