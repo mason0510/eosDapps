@@ -13,11 +13,11 @@
 #define G_ID_END                    104
 
 #define GAME_LENGTH                 45
-#define GAME_RESOLVE_TIME           20
+#define GAME_RESOLVE_TIME           15
 
 #define NUM_CARDS                   52 * 8
 #define RESULT_SIZE                 50
-#define HISTORY_SIZE                40
+#define HISTORY_SIZE                100
 
 #define BET_BANKER_WIN              1
 #define BET_PLAYER_WIN              2
