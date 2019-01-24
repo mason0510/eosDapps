@@ -16,7 +16,7 @@
 #define GAME_RESOLVE_TIME           15
 
 #define NUM_CARDS                   52 * 8
-#define RESULT_SIZE                 50
+#define RESULT_SIZE                 100
 #define HISTORY_SIZE                100
 
 #define BET_BANKER_WIN              1
