@@ -191,7 +191,8 @@ namespace godapp {
                 largest_winner = itr;
                 win_amount = current.payout.amount;
             }
-            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[Dapp365] Baccarat win!");
+            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer,
+                current.payout.amount >= current.bet.amount ? "[Dapp365] Baccarat win!" : "[Dapp365] Baccarat lose!" );
         }
 
         uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
