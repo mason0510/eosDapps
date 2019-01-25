@@ -46,6 +46,15 @@
         > bet_table; \
         bet_table _bets;
 
+#define DEFINE_BET_AMOUNT_TABLE \
+        TABLE bet_amount { \
+            name player; \
+            asset bet; \
+            uint64_t primary_key() const { return player.value; } \
+        }; \
+        typedef multi_index<name("betamount"), bet_amount> bet_amount_table; \
+        bet_amount_table _bet_amount;
+
 #define DEFINE_HISTORY_TABLE \
         TABLE history { \
             uint64_t id; \
@@ -144,7 +153,16 @@ private: \
         if (!check_transfer(this, from, to, quantity, memo)) { \
             return; \
         }; \
-        transfer_to_house(_self, quantity, from, quantity.amount); \
+        asset total_bet = quantity; \
+        auto bet_iter = _bet_amount.find(from.value); \
+        if (bet_iter != _bet_amount.end()) { \
+            total_bet += bet_iter->bet; \
+        } \
+        table_upsert(_bet_amount, _self, from.value, [&](auto &a) { \
+            a.player = from; \
+            a.bet = total_bet; \
+        }); \
+        transfer_to_house(_self, quantity, from, total_bet.amount); \
         param_reader reader(memo); \
         auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() ); \
         auto referer = reader.get_referer(from); \

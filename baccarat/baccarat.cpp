@@ -39,7 +39,8 @@ namespace godapp {
             _globals(_self, _self.value),
             _games(_self, _self.value),
             _bets(_self, _self.value),
-            _results(_self, _self.value){
+            _results(_self, _self.value),
+            _bet_amount(_self, _self.value) {
     }
 
     DEFINE_STANDARD_FUNCTIONS(baccarat)
@@ -206,6 +207,10 @@ namespace godapp {
             a.player_cards = player_cards;
             a.banker_cards = banker_cards;
         });
+
+        for (auto itr = _bet_amount.begin(); itr != _bet_amount.end();) {
+            itr = _bet_amount.erase(itr);
+        }
 
         uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE);
         table_upsert(_results, _self, result_index, [&](auto &a) {
