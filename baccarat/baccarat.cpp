@@ -31,7 +31,7 @@ namespace godapp {
             {0,     2,      0,      0,      0}, // PLAYER
             {1,     1,      9,      0,      0}, // TIE
             {1,     0,      0,      41,     0}, // DRAGON
-            {0,     0,      0,      0,      26} // PANDA
+            {0,     2,      0,      0,      26} // PANDA
     };
     //      BANKER, PLAYER, TIE,    DRAGON, PANDA
     baccarat::baccarat(name receiver, name code, datastream<const char*> ds):
