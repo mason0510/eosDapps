@@ -11,7 +11,7 @@
 #define G_ID_HISTORY_ID             104
 #define G_ID_END                    104
 
-#define GAME_LENGTH                 40
+#define GAME_LENGTH                 45
 #define GAME_RESOLVE_TIME           15
 
 #define RESULT_SIZE                 60
@@ -84,11 +84,11 @@ namespace godapp {
             case BET_BACK:
                 return (result > 24) ? 3 : 0;
             case BET_LINE_ONE:
-                return (result % 3 == 1) ? 3 : 0;
+                return (result % 3 == 0) ? 3 : 0;
             case BET_LINE_TWO:
                 return (result % 3 == 2) ? 3 : 0;
             case BET_LINE_THREE:
-                return (result % 3 == 0) ? 3 : 0;
+                return (result % 3 == 1) ? 3 : 0;
             case BET_RED:
                 return is_red ? 2 : 0;
             case BET_BLACK:
@@ -107,7 +107,6 @@ namespace godapp {
 
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!");
         eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp >= gm_pos->end_time, "Can not reveal yet");
-
 
         random random_gen;
         uint8_t result = random_gen.generator(BET_NUMBER_END);
@@ -153,7 +152,8 @@ namespace godapp {
                 largest_winner = itr;
                 win_amount = current.payout.amount;
             }
-            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[GoDapp] Roulette win!");
+            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer,
+                current.payout.amount > 0 ? "[Dapp365] Roulette win!" : "[Dapp365] Roulette lose!");
         }
 
         uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
