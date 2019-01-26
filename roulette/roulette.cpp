@@ -29,6 +29,8 @@
 #define BET_LINE_ONE                45
 #define BET_LINE_TWO                46
 #define BET_LINE_THREE              47
+#define BET_RED                     48
+#define BET_BLACK                   49
 
 
 namespace godapp {
@@ -85,6 +87,10 @@ namespace godapp {
                 return (result % 3 == 2) ? 3 : 0;
             case BET_LINE_THREE:
                 return (result % 3 == 0) ? 3 : 0;
+            case BET_RED:
+                return is_red ? 2 : 0;
+            case BET_BLACK:
+                return is_red ? 0 : 2;
             default:
                 return (result == bet - 1) ? 36 : 0;
         }
