@@ -22,6 +22,7 @@ namespace godapp {
         DEFINE_BETS_TABLE
         DEFINE_RESULTS_TABLE
         DEFINE_HISTORY_TABLE
+        DEFINE_BET_AMOUNT_TABLE
 
         ACTION receipt(uint64_t game_id, uint8_t result);
         DEFINE_STANDARD_ACTIONS(roulette)

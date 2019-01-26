@@ -39,7 +39,9 @@ namespace godapp {
     _globals(_self, _self.value),
     _games(_self, _self.value),
     _bets(_self, _self.value),
-    _results(_self, _self.value){
+    _results(_self, _self.value),
+    _bet_amount(_self, _self.value)
+    {
     }
 
     DEFINE_STANDARD_FUNCTIONS(roulette)
@@ -164,6 +166,10 @@ namespace godapp {
             a.largest_win_amount = asset(win_amount, EOS_SYMBOL);
             a.result = result;
         });
+
+        for (auto itr = _bet_amount.begin(); itr != _bet_amount.end();) {
+            itr = _bet_amount.erase(itr);
+        }
 
         SEND_INLINE_ACTION(*this, receipt, {_self, name("active")}, {game_id, result});
 
