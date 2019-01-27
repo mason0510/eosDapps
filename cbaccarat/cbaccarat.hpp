@@ -5,10 +5,12 @@
 #include <eosiolib/transaction.h>
 #include <eosiolib/transaction.hpp>
 
+#define card_t uint16_t
+
 #include "../common/constants.hpp"
 #include "../common/contracts.hpp"
+#include "../common/random.hpp"
 #include "../common/round_based_contract.hpp"
-#include "../baccarat/baccarat_common.hpp"
 
 namespace godapp {
     using namespace eosio;
