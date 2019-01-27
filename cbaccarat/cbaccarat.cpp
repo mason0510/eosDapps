@@ -1,98 +1,68 @@
-#include "../baccarat/baccarat.hpp"
-#include "../common/cards.hpp"
+#include "../cbaccarat/cbaccarat.hpp"
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/eosio.token.hpp"
 #include "../house/house.hpp"
 
-#define G_ID_START                  101
-#define G_ID_RESULT_ID              101
-#define G_ID_GAME_ID                102
-#define G_ID_BET_ID                 103
-#define G_ID_HISTORY_ID             104
-#define G_ID_END                    104
-
-#define GAME_LENGTH                 45
-#define GAME_RESOLVE_TIME           15
-
-#define NUM_CARDS                   52 * 8
-#define RESULT_SIZE                 100
-#define HISTORY_SIZE                100
-
 #define BET_BANKER_WIN              1
 #define BET_PLAYER_WIN              2
 #define BET_TIE                     3
-#define BET_DRAGON                  4
-#define BET_PANDA                   5
+#define BET_BANKER_PAIR             4
+#define BET_PLAYER_PAIR             5
 
 namespace godapp {
-    uint8_t PAYOUT_MATRIX[5][5] = {
-            {2,     0,      0,      0,      0}, // BANKER
-            {0,     2,      0,      0,      0}, // PLAYER
-            {1,     1,      9,      0,      0}, // TIE
-            {1,     0,      0,      41,     0}, // DRAGON
-            {0,     2,      0,      0,      26} // PANDA
-    };
-    //      BANKER, PLAYER, TIE,    DRAGON, PANDA
     cbaccarat::cbaccarat(name receiver, name code, datastream<const char*> ds):
-            contract(receiver, code, ds),
-            _globals(_self, _self.value),
-            _games(_self, _self.value),
-            _bets(_self, _self.value),
-            _results(_self, _self.value),
-            _bet_amount(_self, _self.value) {
+        contract(receiver, code, ds),
+        _globals(_self, _self.value),
+        _games(_self, _self.value),
+        _bets(_self, _self.value),
+        _results(_self, _self.value),
+        _bet_amount(_self, _self.value) {
     }
 
-    DEFINE_STANDARD_FUNCTIONS(baccarat)
+    DEFINE_STANDARD_FUNCTIONS(cbaccarat)
 
-	uint8_t card_point(card_t card) {
-	    uint8_t value = card_value(card);
-	    return value > 9 ? 0 : value;
-	}
-
-	uint8_t cards_point(const vector<card_t>& cards) {
-	    uint8_t result = 0;
-	    for (card_t card: cards) {
-	        result += card_point(card);
-	    }
-	    return result % 10;
-	}
-
-	string result_to_string(uint8_t result) {
-        switch (result) {
+    string result_to_string(uint8_t result) {
+        switch (result & 7) {
             case BET_BANKER_WIN:
                 return "Banker Wins";
             case BET_PLAYER_WIN:
                 return "Player Wins";
             case BET_TIE:
                 return "Tie";
-            case BET_DRAGON:
-                return "Dragon 7";
-            case BET_PANDA:
-                return "Panda 8";
             default:
                 return "";
         }
     }
 
-	bool banker_draw_third_card(uint8_t banker_point, uint8_t player_third_card) {
-        switch (banker_point) {
-            case 0:
-            case 1:
-            case 2:
-                return true;
-            case 3:
-                return player_third_card != 8;
-            case 4:
-                return player_third_card >= 2 && player_third_card <= 7;
-            case 5:
-                return player_third_card >= 4 && player_third_card <= 7;
-            case 6:
-                return player_third_card == 6 || player_third_card == 7;
+    asset get_payout(uint8_t bet_type, asset bet, uint8_t result, bool player_pair, bool banker_pair) {
+        switch (bet_type) {
+            case BET_BANKER_WIN:
+                if (result == BET_BANKER_WIN) {
+                    return bet * 195 / 100;
+                } else if (result == BET_TIE) {
+                    return bet;
+                } else {
+                    return asset(0, bet.symbol);
+                }
+            case BET_PLAYER_WIN:
+                if (result == BET_PLAYER_WIN) {
+                    return bet * 2;
+                } else if (result == BET_TIE) {
+                    return bet;
+                } else {
+                    return asset(0, bet.symbol);
+                }
+            case BET_TIE:
+                return result == BET_TIE ? (bet * 9) : asset(0, bet.symbol);
+            case BET_BANKER_PAIR:
+                return banker_pair ? (bet * 12) : asset(0, bet.symbol);
+            case BET_PLAYER_PAIR:
+                return player_pair ? (bet * 12) : asset(0, bet.symbol);
             default:
-                return false;
+                return asset(0, bet.symbol);
         }
-	}
+    }
 
     void cbaccarat::reveal(uint64_t game_id) {
         require_auth(_self);
@@ -103,51 +73,21 @@ namespace godapp {
 
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!");
         eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp >= gm_pos->end_time, "Can not reveal yet");
-
-        vector<card_t> cards, banker_cards, player_cards;
-        random random_gen;
-        add_card(random_gen, banker_cards, cards, NUM_CARDS);
-        add_card(random_gen, banker_cards, cards, NUM_CARDS);
-
-        add_card(random_gen, player_cards, cards, NUM_CARDS);
-        add_card(random_gen, player_cards, cards, NUM_CARDS);
-
-        uint8_t banker_point = cards_point(banker_cards);
-        uint8_t player_point = cards_point(player_cards);
-
-        if (banker_point < 8 && player_point < 8) {
-            if (player_point < 6) {
-                uint8_t player_third_card = card_point(add_card(random_gen, player_cards, cards, NUM_CARDS));
-                player_point = cards_point(player_cards);
-
-                if (banker_draw_third_card(banker_point, player_third_card)) {
-                    add_card(random_gen, banker_cards, cards, NUM_CARDS);
-                    banker_point = cards_point(banker_cards);
-                }
-            } else if (banker_point < 6) {
-                add_card(random_gen, banker_cards, cards, NUM_CARDS);
-                banker_point = cards_point(banker_cards);
-            }
-        }
+        vector<card_t> banker_cards, player_cards;
+        uint8_t banker_point, player_point;
+        draw_cards(banker_cards, banker_point, player_cards, player_point);
 
         uint8_t result = 0;
         if (player_point > banker_point) {
-            if (player_point == 8 && player_cards.size() == 3) {
-                result = BET_PANDA;
-            } else {
-                result = BET_PLAYER_WIN;
-            }
+            result = BET_BANKER_WIN;
         } else if (banker_point > player_point) {
-            if (banker_point == 7 && banker_cards.size() == 3) {
-                result = BET_DRAGON;
-            } else {
-                result = BET_BANKER_WIN;
-            }
+            result = BET_BANKER_WIN;
         } else {
             result = BET_TIE;
         }
 
-        uint8_t* payout_array = PAYOUT_MATRIX[result - 1];
+        bool banker_pair = card_value(banker_cards[0]) == card_value(banker_cards[1]);
+        bool player_pair = card_value(player_cards[0]) == card_value(player_cards[1]);
 
         history_table history(_self, _self.value);
         uint64_t history_id = get_global(_globals, G_ID_HISTORY_ID);
@@ -157,7 +97,7 @@ namespace godapp {
         for (auto itr = bet_index.begin(); itr != bet_index.end();) {
             uint8_t bet_type = itr->bet_type;
             asset bet = itr->bet;
-            asset payout = bet * payout_array[bet_type - 1];
+            asset payout = get_payout(bet_type, bet, result, banker_pair, player_pair);
 
             history_id++;
             uint64_t id = history_id % HISTORY_SIZE;
@@ -193,7 +133,7 @@ namespace godapp {
                 win_amount = current.payout.amount;
             }
             make_payment(_self, name(itr->first), current.bet, current.payout, current.referer,
-                current.payout.amount >= current.bet.amount ? "[Dapp365] Baccarat win!" : "[Dapp365] Baccarat lose!" );
+                current.payout.amount >= current.bet.amount ? "[Dapp365] Baccarat Clasic win!" : "[Dapp365] Baccarat Classic lose!" );
         }
 
         uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
@@ -222,7 +162,7 @@ namespace godapp {
         delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME);
 
         SEND_INLINE_ACTION(*this, receipt, {_self, name("active")},
-                {game_id, cards_to_string(player_cards), player_point, cards_to_string(banker_cards), banker_point, result_to_string(result)});
+                           {game_id, cards_to_string(player_cards), player_point, cards_to_string(banker_cards), banker_point, result_to_string(result)});
     }
 
     void cbaccarat::receipt(uint64_t game_id, string player_cards, uint8_t player_point, string banker_cards, uint8_t banker_point, string result) {
