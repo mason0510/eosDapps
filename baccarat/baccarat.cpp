@@ -33,7 +33,7 @@ namespace godapp {
         baccarat_result() {
             draw_cards(banker_cards, banker_point, player_cards, player_point);
 
-            uint8_t result = 0;
+            result = 0;
             if (player_point > banker_point) {
                 if (player_point == 8 && player_cards.size() == 3) {
                     result = BET_PANDA;
