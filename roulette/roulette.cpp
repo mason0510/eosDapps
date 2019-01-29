@@ -72,28 +72,40 @@ namespace godapp {
                 switch (bet_type) {
                     case BET_EVEN:
                         pay_rate = (result % 2 == 0) ? 2 : 0;
+                        break;
                     case BET_ODD:
                         pay_rate = (result % 2 == 1) ? 2 : 0;
+                        break;
                     case BET_LARGE:
                         pay_rate = (result > 18) ? 2 : 0;
+                        break;
                     case BET_SMALL:
                         pay_rate = (result <= 18) ? 2 : 0;
+                        break;
                     case BET_FRONT:
                         pay_rate = (result <= 12) ? 3 : 0;
+                        break;
                     case BET_MID:
                         pay_rate = (result > 12 && result <= 24) ? 3 : 0;
+                        break;
                     case BET_BACK:
                         pay_rate = (result > 24) ? 3 : 0;
+                        break;
                     case BET_LINE_ONE:
                         pay_rate = (result % 3 == 0) ? 3 : 0;
+                        break;
                     case BET_LINE_TWO:
                         pay_rate = (result % 3 == 2) ? 3 : 0;
+                        break;
                     case BET_LINE_THREE:
                         pay_rate = (result % 3 == 1) ? 3 : 0;
+                        break;
                     case BET_RED:
                         pay_rate = is_red ? 2 : 0;
+                        break;
                     case BET_BLACK:
                         pay_rate = is_red ? 0 : 2;
+                        break;
                     default:
                         pay_rate = (result == bet_type - 1) ? 36 : 0;
                 }
