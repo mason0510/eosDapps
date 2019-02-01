@@ -179,7 +179,7 @@ namespace godapp {
                 asset refer_bonus = bet * REFERRAL_BOUUS / 1000;
                 pay_amount += refer_bonus.amount;
                 if (refer_bonus.amount > 0) {
-                    INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "GoDapp Referral Bonus"} );
+                    INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
                 }
             }
         }
