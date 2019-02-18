@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "algorithm": "cpp",
+<<<<<<< HEAD
         "limits": "cpp",
         "__bit_reference": "cpp",
         "__functional_base": "cpp",
@@ -12,5 +13,8 @@
         "type_traits": "cpp",
         "vector": "cpp",
         "typeinfo": "cpp"
+=======
+        "limits": "cpp"
+>>>>>>> 6825a9ea1c79277e8808e09d1f9548f2998ba672
     }
 }
