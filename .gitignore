@@ -1,0 +1,6 @@
+.DS_Store
+*.abi
+*.wasm
+
+cmake-build-debug
+.idea
