@@ -127,7 +127,7 @@ namespace godapp {
      * @param memo Memo used for transfer
      * @return True if the transaction should be further processed, false otherwise
      */
-    bool check_transfer(const contract* self, name from, name to, asset quantity, const string& memo) {
+    bool check_transfer(const contract* self, name from, name to, asset quantity, const string& memo, bool block_contract = true) {
         if (from == self->get_self() || to != self->get_self()) {
             return false;
         }
@@ -140,8 +140,10 @@ namespace godapp {
         eosio_assert(quantity.amount > 0, "Transfer amount not positive");
         eosio_assert(!memo.empty(), "Memo is required");
 
-        eosio::action act = eosio::get_action( 1, 0 );
-        eosio_assert(act.name == name("transfer") && act.authorization[0].actor == from, "Contract not allowed");
+        if (block_contract) {
+            eosio::action act = eosio::get_action( 1, 0 );
+            eosio_assert(act.name == name("transfer") && act.authorization[0].actor == from, "Contract not allowed");
+        }
 
         return true;
     }

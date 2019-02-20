@@ -71,7 +71,7 @@ namespace godapp {
      * Receive transfer from games, and check payment status
      */
     void house::transfer(name from, name to, asset quantity, string memo) {
-        if (!check_transfer(this, from, to, quantity, memo)) {
+        if (!check_transfer(this, from, to, quantity, memo, false)) {
             return;
         };
 
