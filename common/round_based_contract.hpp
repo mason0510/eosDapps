@@ -15,10 +15,11 @@
             uint8_t status; \
             name largest_winner; \
             asset largest_win_amount; \
+            capi_checksum256 seed; \
             uint64_t primary_key() const { return symbol.raw(); } \
-            uint64_t byid()const {return id;} \
+            uint64_t byid() const {return id;} \
         }; \
-        typedef multi_index<name("gametable"), game, \
+        typedef multi_index<name("activegame"), game, \
             indexed_by< name("byid"), const_mem_fun<game, uint64_t, &game::byid> > \
         > games_table; \
         games_table _games; \
@@ -78,22 +79,21 @@
         typedef multi_index<name("results"), result> result_table; \
         result_table _results;
 
-#define DEFINE_STANDARD_ACTIONS(NAME) \
+#define DECLARE_STANDARD_ACTIONS(NAME) \
 public: \
         NAME(name receiver, name code, datastream<const char*> ds); \
         ACTION init(); \
         ACTION setglobal(uint64_t key, uint64_t value); \
         ACTION play(name player, asset bet, string memo); \
-        ACTION resolve(uint64_t game_id); \
-        ACTION reveal(uint64_t game_id); \
+        ACTION reveal(uint64_t game_id, capi_signature signature); \
         ACTION newround(symbol symbol_type); \
         ACTION hardclose(uint64_t game_id); \
         ACTION transfer(name from, name to, asset quantity, string memo); \
+        ACTION setrandkey(capi_public_key randomness_key); \
 private: \
         void initsymbol(symbol sym); \
 
-
-#define STANDARD_ACTIONS (init)(reveal)(transfer)(resolve)(newround)(setglobal)(hardclose)
+#define STANDARD_ACTIONS (init)(reveal)(transfer)(newround)(setglobal)(hardclose)(setrandkey)
 
 #define DEFINE_CONSTRUCTOR(NAME) \
     NAME::NAME(name receiver, name code, datastream<const char*> ds): \
@@ -102,6 +102,7 @@ private: \
         _games(_self, _self.value), \
         _bets(_self, _self.value), \
         _results(_self, _self.value), \
+        _random_keys(_self, _self.value), \
         _bet_amount(_self, _self.value) { \
     }
 
@@ -133,15 +134,9 @@ private: \
         eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait"); \
         _games.modify(game_iter, _self, [&](auto &a) { \
             a.end_time = timestamp + GAME_LENGTH; \
+            a.seed = create_seed(a.id); \
             a.status = GAME_STATUS_ACTIVE; \
         }); \
-        delayed_action(_self, _self, name("resolve"), make_tuple(game_iter->id), GAME_LENGTH); \
-    }
-
-#define DEFINE_RESOLVE_FUNCTION(NAME) \
-    void NAME::resolve(uint64_t game_id) { \
-        require_auth(_self); \
-        delayed_action(_self, _self, name("reveal"), make_tuple(game_id)); \
     }
 
 #define DEFINE_HARDCLOSE_FUNCTION(NAME) \
@@ -283,7 +278,7 @@ private: \
             a.game_id = game_id; \
             a.result = result.result; \
         }); \
-        delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME); \
+        delayed_action(_self, , name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME); \
         result.set_receipt(*this, game_id); \
     }
 
@@ -291,8 +286,8 @@ private: \
         DEFINE_CONSTRUCTOR(NAME) \
         DEFINE_INIT_FUNCTION(NAME) \
         DEFINE_SET_GLOBAL(NAME) \
-        DEFINE_RESOLVE_FUNCTION(NAME) \
         DEFINE_NEW_ROUND_FUNCTION(NAME) \
         DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
         DEFINE_HARDCLOSE_FUNCTION(NAME) \
-        DEFINE_TRANSFER_FUNCTION(NAME)
+        DEFINE_TRANSFER_FUNCTION(NAME) \
+        DEFINE_SET_RANDOM_KEY(NAME)

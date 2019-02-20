@@ -174,6 +174,6 @@ namespace godapp {
         eosio::transaction r_out;
         r_out.actions.emplace_back(eosio::permission_level{self, name("active")}, self, action, data);
         r_out.delay_sec = delay;
-        r_out.send(sender.value, self);
+        r_out.send(sender.value, sender);
     }
 }

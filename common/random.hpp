@@ -29,6 +29,7 @@ namespace godapp {
 
     public:
         random(uint64_t mixed = 0);
+        random(capi_checksum256 seed);
         ~random();
 
         template<class T>
@@ -53,14 +54,17 @@ namespace godapp {
         capi_checksum256 get_seed() const;
 
     private:
-        capi_checksum256 _sseed;
-        capi_checksum256 _useed;
         capi_checksum256 _mixed;
         capi_checksum256 _seed;
     };
 
     random::random(uint64_t mixed) {
         update_seed_from_tx(mixed);
+    }
+
+    random::random(capi_checksum256 seed) {
+        _seed = seed;
+        _mixed = seed;
     }
 
     random::~random() {}
@@ -75,9 +79,7 @@ namespace godapp {
     }
 
     void random::seed(capi_checksum256 sseed, capi_checksum256 useed) {
-        _sseed = sseed;
-        _useed = useed;
-        mixseed(_sseed, _useed, _mixed);
+        mixseed(sseed, useed, _mixed);
         _seed = _mixed;
     }
 

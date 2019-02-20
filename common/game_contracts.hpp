@@ -1,10 +1,12 @@
 #pragma once
 
 #include <eosiolib/eosio.hpp>
+#include "../common/random.hpp"
 #include "../house/house.hpp"
 #include "../common/eosio.token.hpp"
 
 #include <string>
+#include <eosiolib/crypto.h>
 
 namespace godapp {
     using namespace std;
@@ -18,5 +20,48 @@ namespace godapp {
         eosio_assert(quantity.amount >= token_iter->min && max_payout <= token_iter->max_payout, "amount not within the bet limit");
         INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT, {self, name("active")},
                                                      {self, HOUSE_ACCOUNT, quantity, player.to_string()});
+    }
+
+#define DEFINE_RANDOM_KEY_TABLE \
+    TABLE randkey { \
+        uint64_t id; \
+        capi_public_key key; \
+        uint64_t primary_key() const { return id; } \
+    }; \
+    typedef multi_index<name("randkeys"), randkey> randkeys_index; \
+    randkeys_index _random_keys;
+
+
+#define DECLARE_SET_RANDOM_KEY \
+    ACTION setrandkey(capi_public_key randomness_key);
+
+#define DEFINE_SET_RANDOM_KEY(NAME) \
+    void NAME::setrandkey(capi_public_key randomness_key){ \
+        require_auth(_self); \
+        table_upsert(_random_keys, _self, 0, [&](auto& k){ \
+            k.key = randomness_key; \
+        }); \
+    }
+
+    struct seed_data {
+        uint64_t game_id;
+        int block_number;
+        int block_prefix;
+    };
+
+    capi_checksum256 create_seed(uint64_t bet_id) {
+        capi_checksum256 seed;
+        seed_data data{bet_id, tapos_block_num(), tapos_block_prefix()};
+        sha256( (char *)&data.game_id, sizeof(data), &seed);
+
+        return seed;
+    }
+
+    random random_from_sig(capi_public_key public_key, capi_checksum256 seed, capi_signature signature) {
+        assert_recover_key(&seed, (const char *)&signature, sizeof(signature), (const char *)&public_key, sizeof(public_key));
+
+        capi_checksum256 random_num_hash;
+        sha256( (char *)&signature, sizeof(signature), &random_num_hash );
+        return random(random_num_hash);
     }
 }

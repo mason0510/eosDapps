@@ -25,7 +25,7 @@ namespace godapp {
         DEFINE_HISTORY_TABLE
 
         ACTION receipt(uint64_t game_id, string red_cards, string blue_cards, string result, bool lucky_strike);
-        DEFINE_STANDARD_ACTIONS(redblack)
+        DECLARE_STANDARD_ACTIONS(redblack)
     };
 
     EOSIO_ABI_EX(redblack, STANDARD_ACTIONS(receipt))

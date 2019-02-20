@@ -57,9 +57,10 @@ namespace godapp {
     }
 
     void draw_cards(std::vector<card_t>& banker_cards, uint8_t& banker_point,
-                    std::vector<card_t>& player_cards, uint8_t& player_point) {
+                    std::vector<card_t>& player_cards, uint8_t& player_point,
+                    random& random_gen) {
         std::vector<card_t> cards;
-        random random_gen;
+
         add_card(random_gen, banker_cards, cards, NUM_CARDS);
         add_card(random_gen, player_cards, cards, NUM_CARDS);
 

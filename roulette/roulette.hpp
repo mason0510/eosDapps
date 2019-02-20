@@ -25,7 +25,7 @@ namespace godapp {
         DEFINE_BET_AMOUNT_TABLE
 
         ACTION receipt(uint64_t game_id, uint8_t result);
-        DEFINE_STANDARD_ACTIONS(roulette)
+        DECLARE_STANDARD_ACTIONS(roulette)
     };
 
     EOSIO_ABI_EX(roulette, STANDARD_ACTIONS(receipt))

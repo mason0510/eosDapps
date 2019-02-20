@@ -24,7 +24,7 @@ namespace godapp {
         DEFINE_BET_AMOUNT_TABLE
 
         ACTION receipt(uint64_t game_id, string player_cards, uint8_t player_point, string banker_cards, uint8_t banker_point, string result);
-        DEFINE_STANDARD_ACTIONS(baccarat)
+        DECLARE_STANDARD_ACTIONS(baccarat)
     };
 
     EOSIO_ABI_EX(baccarat, STANDARD_ACTIONS(receipt))
