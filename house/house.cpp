@@ -207,14 +207,16 @@ namespace godapp {
             a.balance = balance;
         });
     }
-        void house::deletetoken(name game, symbol token) {
+
+    void house::cleartoken(name game) {
         require_auth(_self);
         token_index game_token(_self, game.value);
-        auto iter=game_token.find(token.raw());
-        if (iter == game_token.end()) {
-            //table.emplace(payer, updater);
-        } else {
-            game_token.erase(iter);
+        for (auto iter = game_token.begin(); iter != game_token.end();) {
+            if (iter->sym.code() != EOS_SYMBOL.code()) {
+                iter = game_token.erase(iter);
+            } else {
+                iter++;
+            }
         }
     }
 

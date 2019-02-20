@@ -69,10 +69,10 @@ namespace godapp {
         ACTION transfer(name from, name to, asset quantity, string memo);
         ACTION pay(name game, name to, asset bet, asset payout, string memo, name referer);
         ACTION updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance);
-        ACTION deletetoken(name game, symbol token);
+        ACTION cleartoken(name game);
     };
 
 #ifdef DEFINE_DISPATCHER
-    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(pay)(setactive)(deletetoken))
+    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(pay)(setactive)(cleartoken))
 #endif
 }
