@@ -141,8 +141,7 @@ namespace godapp {
         eosio_assert(!memo.empty(), "Memo is required");
 
         eosio::action act = eosio::get_action( 1, 0 );
-        eosio_assert(act.name == name("transfer") && act.account == from, "Contract not allowed");
-        eosio_assert(, "Contract not allowed");
+        eosio_assert(act.name == name("transfer") && act.authorization[0].actor == from, "Contract not allowed");
 
         return true;
     }
