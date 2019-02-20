@@ -84,7 +84,6 @@ public: \
         NAME(name receiver, name code, datastream<const char*> ds); \
         ACTION init(); \
         ACTION setglobal(uint64_t key, uint64_t value); \
-        ACTION play(name player, asset bet, string memo); \
         ACTION reveal(uint64_t game_id, capi_signature signature); \
         ACTION newround(symbol symbol_type); \
         ACTION hardclose(uint64_t game_id); \
@@ -205,15 +204,16 @@ private: \
     } \
 
 #define DEFINE_REVEAL_FUNCTION(NAME, DISPLAYNAME, RESULT) \
-    void NAME::reveal(uint64_t game_id) { \
-        require_auth(_self); \
+    void NAME::reveal(uint64_t game_id, capi_signature signature) { \
         auto idx = _games.get_index<name("byid")>(); \
         auto gm_pos = idx.find(game_id); \
         uint32_t timestamp = now(); \
         \
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!"); \
         eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp >= gm_pos->end_time, "Can not reveal yet"); \
-        RESULT result; \
+        capi_public_key random_key = _random_keys.get(0, "random key is not set").key; \
+        random random_gen = random_from_sig(random_key, gm_pos->seed, signature); \
+        RESULT result(random_gen); \
         history_table history(_self, _self.value); \
         uint64_t history_id = get_global(_globals, G_ID_HISTORY_ID); \
         \
@@ -278,8 +278,8 @@ private: \
             a.game_id = game_id; \
             a.result = result.result; \
         }); \
-        delayed_action(_self, , name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME); \
-        result.set_receipt(*this, game_id); \
+        delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME); \
+        result.set_receipt(*this, game_id, gm_pos->seed); \
     }
 
 #define DEFINE_STANDARD_FUNCTIONS(NAME) \

@@ -42,14 +42,6 @@
 
 
 namespace godapp {
-    redblack::redblack(name receiver, name code, datastream<const char*> ds):
-    contract(receiver, code, ds),
-    _globals(_self, _self.value),
-    _games(_self, _self.value),
-    _bets(_self, _self.value),
-    _results(_self, _self.value){
-    }
-
     DEFINE_STANDARD_FUNCTIONS(redblack)
 
     uint8_t get_lucky_strike_rate(uint8_t bet_type) {
@@ -74,16 +66,6 @@ namespace godapp {
         return suit == card_suit(hand[1]) && suit == card_suit(hand[2]);
     }
 
-    string result_to_string(uint8_t result) {
-        switch (result) {
-            case BET_RED_WIN:
-                return "Red Win";
-            case BET_BLACK_WIN:
-                return "Blue Win";
-            default:
-                return "Tie";
-        }
-    }
 
     /**
      * preprocess the points in a hand to convert them to points, and sort based on the point value
@@ -175,114 +157,74 @@ namespace godapp {
         }
     }
 
-    void redblack::reveal(uint64_t game_id) {
-        require_auth(_self);
+    class redblack_result {
+    public:
+        vector<card_t> red_cards, black_cards;
+        vector<uint8_t> red_points, black_points;
+        uint8_t red_type, black_type;
+        uint8_t game_result, result;
+        uint8_t lucky_rate;
 
-        auto idx = _games.get_index<name("byid")>();
-        auto gm_pos = idx.find(game_id);
-        uint32_t timestamp = now();
+        redblack_result(random& random_gen) {
+            vector<card_t> cards;
+            add_cards(random_gen, red_cards, cards, 3, NUM_CARDS);
+            add_cards(random_gen, black_cards, cards, 3, NUM_CARDS);
 
-        eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!");
-        eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp >= gm_pos->end_time, "Can not reveal yet");
+            red_points = preprocess_hand(red_cards);
+            black_points = preprocess_hand(black_cards);
 
-        vector<card_t> cards, red_cards, black_cards;
-        random random_gen;
-        add_cards(random_gen, red_cards, cards, 3, NUM_CARDS);
-        add_cards(random_gen, black_cards, cards, 3, NUM_CARDS);
+            red_type = get_hand_type(red_points, is_same_suit(red_cards));
+            black_type = get_hand_type(black_points, is_same_suit(black_cards));
 
-        vector<uint8_t> red_points = preprocess_hand(red_cards);
-        vector<uint8_t> black_points = preprocess_hand(black_cards);
-
-        uint8_t red_type = get_hand_type(red_points, is_same_suit(red_cards));
-        uint8_t black_type = get_hand_type(black_points, is_same_suit(black_cards));
-
-        uint8_t result = compare_side(red_type, black_type);
-        if (result == 0) {
-            result = compare_same_type(red_type, red_points, black_points);
-        }
-        uint8_t lucky_rate = get_lucky_strike_rate(max(red_type, black_type));
-
-        history_table history(_self, _self.value);
-        uint64_t history_id = get_global(_globals, G_ID_HISTORY_ID);
-
-        map<uint64_t, pay_result> result_map;
-        auto bet_index = _bets.get_index<name("bygameid")>();
-        for (auto itr = bet_index.begin(); itr != bet_index.end();) {
-            uint8_t bet_type = itr->bet_type;
-            asset bet = itr->bet;
-
-            asset payout;
-            if (bet_type == result) {
-                payout = bet * RATE_WIN / 100;
-            } else if (bet_type == BET_LUCKY_STRIKE) {
-                payout = bet * lucky_rate;
+            uint8_t game_result = compare_side(red_type, black_type);
+            if (game_result == 0) {
+                game_result = compare_same_type(red_type, red_points, black_points);
             }
+            lucky_rate = get_lucky_strike_rate(max(red_type, black_type));
+            result = (lucky_rate > 0) ? (game_result | BET_LUCKY_STRIKE) : game_result;
+        }
 
-            history_id++;
-            uint64_t id = history_id % HISTORY_SIZE;
-            table_upsert(history, _self, id, [&](auto &a) {
-                a.id = id;
-                a.history_id = history_id;
-                a.player = itr->player;
-                a.bet = bet;
-                a.bet_type = bet_type;
-                a.payout = payout;
-                a.close_time = timestamp;
-            });
+        asset get_payout(const redblack::bet &bet_item) {
+            asset bet = bet_item.bet;
+            uint8_t bet_type = bet_item.bet_type;
 
-            auto result_itr = result_map.find(itr->player.value);
-            if (result_itr == result_map.end()) {
-                result_map[itr->player.value] = pay_result{bet, payout, itr->referer};
+            if (bet_type == BET_LUCKY_STRIKE) {
+                return bet * lucky_rate;
+            } else if (bet_type == game_result) {
+                return bet * RATE_WIN / 100;
             } else {
-                result_itr->second.bet += bet;
-                result_itr->second.payout += payout;
+                return bet * 0;
             }
-            itr = bet_index.erase(itr);
         }
-        set_global(_globals, G_ID_HISTORY_ID, history_id);
 
-        auto largest_winner = result_map.end();
-        int64_t win_amount = 0;
-        for (auto itr = result_map.begin(); itr != result_map.end(); itr++) {
-            auto current = itr->second;
-            if (current.payout.amount > win_amount && current.payout.symbol == EOS_SYMBOL) {
-                largest_winner = itr;
-                win_amount = current.payout.amount;
+        string result_string() {
+            switch (game_result) {
+                case BET_RED_WIN:
+                    return "Red Win";
+                case BET_BLACK_WIN:
+                    return "Blue Win";
+                default:
+                    return "Tie";
             }
-            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, "[GoDapp] War of Stars win!");
         }
 
-        uint64_t next_game_id = increment_global(_globals, G_ID_GAME_ID);
-        name winner_name = largest_winner == result_map.end() ? name() : name(largest_winner->first);
-        idx.modify(gm_pos, _self, [&](auto &a) {
-            a.id = next_game_id;
-            a.status = GAME_STATUS_STANDBY;
-            a.end_time = timestamp + GAME_RESOLVE_TIME;
-            a.largest_winner = winner_name;
-            a.largest_win_amount = asset(win_amount, EOS_SYMBOL);
-            a.red_cards = red_cards;
-            a.black_cards = black_cards;
-        });
-
-        bool lucky_strike = lucky_rate > 0;
-        SEND_INLINE_ACTION(*this, receipt, {_self, name("active")},
-                           {game_id, cards_to_string(red_cards), cards_to_string(black_cards), result_to_string(result), lucky_strike});
-
-        if (lucky_strike) {
-            result |= BET_LUCKY_STRIKE;
+        void update_game(redblack::game &game) {
+            game.red_cards = red_cards;
+            game.black_cards = black_cards;
         }
-        uint64_t result_index = increment_global_mod(_globals, G_ID_RESULT_ID, RESULT_SIZE);
-        table_upsert(_results, _self, result_index, [&](auto &a) {
-            a.id = result_index;
-            a.game_id = game_id;
-            a.result = result;
-        });
 
-        delayed_action(_self, _self, name("newround"), make_tuple(gm_pos->symbol), GAME_RESOLVE_TIME);
-    }
+        void set_receipt(redblack &contract, uint64_t game_id, capi_checksum256 seed) {
+            SEND_INLINE_ACTION(contract, receipt, { contract.get_self(), name("active") }, { game_id, seed,
+                cards_to_string(red_cards),
+                cards_to_string(black_cards), result_string(), lucky_rate > 0 });
+        }
+    };
 
-    void redblack::receipt(uint64_t game_id, string red_cards, string blue_cards, string result, bool lucky_strike) {
+    void redblack::receipt(uint64_t game_id, capi_checksum256 seed, string red_cards, string blue_cards,
+        string result, bool lucky_strike) {
         require_auth(_self);
         require_recipient(_self);
     }
+
+    DEFINE_REVEAL_FUNCTION(redblack, Red Vs Blue, redblack_result)
 };

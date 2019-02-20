@@ -41,8 +41,7 @@ namespace godapp {
         uint8_t result;
         bool is_red;
 
-        roulette_result() {
-            random random_gen;
+        roulette_result(random& random_gen) {
             result = random_gen.generator(BET_NUMBER_END);
             is_red = IS_RED[result];
         }
@@ -118,12 +117,12 @@ namespace godapp {
             game.result = result;
         }
 
-        void set_receipt(roulette& contract, uint64_t game_id) {
-            SEND_INLINE_ACTION(contract, receipt, {contract.get_self(), name("active")}, {game_id, result});
+        void set_receipt(roulette& contract, uint64_t game_id, capi_checksum256 seed) {
+            SEND_INLINE_ACTION(contract, receipt, {contract.get_self(), name("active")}, {game_id, seed, result});
         }
     };
 
-    void roulette::receipt(uint64_t game_id, uint8_t result) {
+    void roulette::receipt(uint64_t game_id, capi_checksum256 seed, uint8_t result) {
         require_auth(_self);
         require_recipient(_self);
     }

@@ -30,8 +30,8 @@ namespace godapp {
         };
         //      BANKER, PLAYER, TIE,    DRAGON, PANDA
 
-        baccarat_result() {
-            draw_cards(banker_cards, banker_point, player_cards, player_point);
+        baccarat_result(random random_gen) {
+            draw_cards(banker_cards, banker_point, player_cards, player_point, random_gen);
 
             result = 0;
             if (player_point > banker_point) {
@@ -79,14 +79,14 @@ namespace godapp {
             game.banker_cards = banker_cards;
         }
 
-        void set_receipt(baccarat& contract, uint64_t game_id) {
+        void set_receipt(baccarat& contract, uint64_t game_id, capi_checksum256 seed) {
             SEND_INLINE_ACTION(contract, receipt, {contract.get_self(), name("active")},
-                {game_id, cards_to_string(player_cards), player_point,
+                {game_id, seed, cards_to_string(player_cards), player_point,
                  cards_to_string(banker_cards), banker_point, result_string()});
         }
     };
 
-    void baccarat::receipt(uint64_t game_id, string player_cards, uint8_t player_point, string banker_cards, uint8_t banker_point, string result) {
+    void baccarat::receipt(uint64_t game_id, capi_checksum256 seed, string player_cards, uint8_t player_point, string banker_cards, uint8_t banker_point, string result) {
         require_auth(_self);
         require_recipient(_self);
     }

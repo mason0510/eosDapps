@@ -23,8 +23,9 @@ namespace godapp {
         DEFINE_RESULTS_TABLE
         DEFINE_HISTORY_TABLE
         DEFINE_BET_AMOUNT_TABLE
+        DEFINE_RANDOM_KEY_TABLE
 
-        ACTION receipt(uint64_t game_id, uint8_t result);
+        ACTION receipt(uint64_t game_id, capi_checksum256 seed, uint8_t result);
         DECLARE_STANDARD_ACTIONS(roulette)
     };
 

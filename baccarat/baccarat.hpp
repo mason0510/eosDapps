@@ -22,8 +22,10 @@ namespace godapp {
         DEFINE_RESULTS_TABLE
         DEFINE_HISTORY_TABLE
         DEFINE_BET_AMOUNT_TABLE
+        DEFINE_RANDOM_KEY_TABLE
 
-        ACTION receipt(uint64_t game_id, string player_cards, uint8_t player_point, string banker_cards, uint8_t banker_point, string result);
+        ACTION receipt(uint64_t game_id, capi_checksum256 seed, string player_cards, uint8_t player_point,
+            string banker_cards, uint8_t banker_point, string result);
         DECLARE_STANDARD_ACTIONS(baccarat)
     };
 

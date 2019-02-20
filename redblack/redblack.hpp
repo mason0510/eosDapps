@@ -23,8 +23,11 @@ namespace godapp {
         DEFINE_BETS_TABLE
         DEFINE_RESULTS_TABLE
         DEFINE_HISTORY_TABLE
+        DEFINE_BET_AMOUNT_TABLE
+        DEFINE_RANDOM_KEY_TABLE
 
-        ACTION receipt(uint64_t game_id, string red_cards, string blue_cards, string result, bool lucky_strike);
+        ACTION receipt(uint64_t game_id, capi_checksum256 seed, string red_cards, string blue_cards, string result,
+            bool lucky_strike);
         DECLARE_STANDARD_ACTIONS(redblack)
     };
 
