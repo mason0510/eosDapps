@@ -111,7 +111,7 @@ namespace godapp {
             } else {
                 uint32_t timestamp = now();
                 // reset event play amount if it has past event (day) boundary
-                uint64_t event_in = (player_iter->last_play_time / EVENT_LENGTH) > (timestamp / EVENT_LENGTH) ?
+                uint64_t event_in = ((timestamp / EVENT_LENGTH) > (player_iter->last_play_time / EVENT_LENGTH)) ?
                                     0 : player_iter->event_in;
                 event_in += amount;
                 game_player.modify(player_iter, _self, [&](auto &a) {
