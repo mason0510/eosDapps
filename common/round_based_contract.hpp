@@ -179,7 +179,7 @@ private: \
                 break; \
             } \
             case GAME_STATUS_ACTIVE: \
-                eosio_assert(timestamp < game_iter->end_time, "Game already finished, please wait for next round"); \
+                eosio_assert((timestamp + 3) < game_iter->end_time, "Game already finished, please wait for next round"); \
                 break; \
             default: \
                 eosio_assert(false, "Invalid game state"); \
@@ -210,7 +210,7 @@ private: \
         uint32_t timestamp = now(); \
         \
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!"); \
-        eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && timestamp >= gm_pos->end_time, "Can not reveal yet"); \
+        eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && (timestamp + 3) >= gm_pos->end_time, "Can not reveal yet"); \
         capi_public_key random_key = _random_keys.get(0, "random key is not set").key; \
         random random_gen = random_from_sig(random_key, gm_pos->seed, signature); \
         RESULT result(random_gen); \
