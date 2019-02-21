@@ -176,7 +176,7 @@ namespace godapp {
             red_type = get_hand_type(red_points, is_same_suit(red_cards));
             black_type = get_hand_type(black_points, is_same_suit(black_cards));
 
-            uint8_t game_result = compare_side(red_type, black_type);
+            game_result = compare_side(red_type, black_type);
             if (game_result == 0) {
                 game_result = compare_same_type(red_type, red_points, black_points);
             }
