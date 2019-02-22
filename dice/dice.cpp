@@ -55,12 +55,6 @@ namespace godapp {
         return bet_asset * (100 - HOUSE_EDGE) / bet_number;
     }
 
-    struct seed_data {
-        uint64_t game_id;
-        int block_number;
-        int block_prefix;
-    };
-
     void dice::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
             return;
@@ -77,10 +71,7 @@ namespace godapp {
         name referer = reader.get_referer(from);
         uint64_t bet_id = increment_global(_globals, GLOBAL_ID_BET);
 
-        capi_checksum256 seed;
-        seed_data data{bet_id, tapos_block_num(), tapos_block_prefix()};
-        sha256( (char *)&data.game_id, sizeof(data), &seed);
-
+        capi_checksum256 seed = create_seed(_self.value, bet_id);
         _active_bets.emplace(_self, [&](auto& a){
             a.id = bet_id;
             a.player = from;
@@ -92,19 +83,13 @@ namespace godapp {
         });
     }
 
-    void dice::resolve(uint64_t bet_id, capi_signature sig){
+    void dice::reveal(uint64_t bet_id, capi_signature sig){
         auto activebets_itr = _active_bets.find( bet_id );
         eosio_assert(activebets_itr != _active_bets.end(), "Bet doesn't exist");
 
         auto key_entry = _random_keys.get(0);
-        capi_public_key rand_signing_key = key_entry.key;
-        assert_recover_key(&activebets_itr->seed, (const char *)&sig, sizeof(sig),
-                (const char *)&rand_signing_key, sizeof(rand_signing_key));
-
-        capi_checksum256 random_num_hash;
-        sha256( (char *)&sig, sizeof(sig), &random_num_hash );
-        uint64_t roll_value = (random_num_hash.hash[0] + random_num_hash.hash[1] + random_num_hash.hash[2] + random_num_hash.hash[3]
-                + random_num_hash.hash[4] + random_num_hash.hash[5] + random_num_hash.hash[6] + random_num_hash.hash[7]) % MAX_ROLL_NUM;
+        random random_gen = random_from_sig(key_entry.key, activebets_itr->seed, sig);
+        uint64_t roll_value = random_gen.generator(MAX_ROLL_NUM);
 
         asset payout;
         asset bet_asset = activebets_itr->bet_asset;
@@ -143,6 +128,6 @@ namespace godapp {
         require_recipient( player );
 
         make_payment(_self, player, bet, payout, referer,
-                     payout.amount > 0 ? "[GoDapp] Dice game win!" : "[GoDapp] Dice game lose!");
+                     payout.amount > 0 ? "[dapp365] Dice game win!" : "[dapp365] Dice game lose!");
     }
 }

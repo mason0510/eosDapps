@@ -31,10 +31,6 @@ namespace godapp {
     typedef multi_index<name("randkeys"), randkey> randkeys_index; \
     randkeys_index _random_keys;
 
-
-#define DECLARE_SET_RANDOM_KEY \
-    ACTION setrandkey(capi_public_key randomness_key);
-
 #define DEFINE_SET_RANDOM_KEY(NAME) \
     void NAME::setrandkey(capi_public_key randomness_key){ \
         require_auth(_self); \
@@ -44,15 +40,16 @@ namespace godapp {
     }
 
     struct seed_data {
+        uint64_t game;
         uint64_t game_id;
         int block_number;
         int block_prefix;
     };
 
-    capi_checksum256 create_seed(uint64_t bet_id) {
+    capi_checksum256 create_seed(uint64_t game, uint64_t bet_id) {
         capi_checksum256 seed;
-        seed_data data{bet_id, tapos_block_num(), tapos_block_prefix()};
-        sha256( (char *)&data.game_id, sizeof(data), &seed);
+        seed_data data{game, bet_id, tapos_block_num(), tapos_block_prefix()};
+        sha256( (char *)&data.game, sizeof(data), &seed);
 
         return seed;
     }

@@ -133,7 +133,7 @@ private: \
         eosio_assert(timestamp >= game_iter->end_time, "Game resolving, please wait"); \
         _games.modify(game_iter, _self, [&](auto &a) { \
             a.end_time = timestamp + GAME_LENGTH; \
-            a.seed = create_seed(a.id); \
+            a.seed = create_seed(_self.value, a.id); \
             a.status = GAME_STATUS_ACTIVE; \
         }); \
     }
