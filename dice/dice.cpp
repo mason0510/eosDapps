@@ -117,7 +117,7 @@ namespace godapp {
             a.roll_value = roll_value;
             a.time = activebets_itr->time;
         });
-        delayed_action(_self, player, name("pay"), make_tuple(bet_id, player, bet_asset, payout, activebets_itr->seed,
+        delayed_action(player, _self, name("pay"), make_tuple(bet_id, player, bet_asset, payout, activebets_itr->seed,
                 bet_number, roll_value, activebets_itr->referer), 0);
         _active_bets.erase(activebets_itr);
     }
