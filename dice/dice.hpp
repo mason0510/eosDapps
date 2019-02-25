@@ -7,6 +7,7 @@
 #include "../common/constants.hpp"
 #include "../common/random.hpp"
 #include "../common/utils.hpp"
+#include "../common/game_contracts.hpp"
 #include "../common/contracts.hpp"
 
 namespace godapp {
@@ -18,15 +19,7 @@ namespace godapp {
         using contract::contract;
 
         DEFINE_GLOBAL_TABLE
-
-        TABLE randkey {
-            uint64_t id;
-            capi_public_key key;
-
-            uint64_t		primary_key() const { return id; }
-        };
-        typedef eosio::multi_index<name("randkeys"), randkey > randkeys_index;
-        randkeys_index _random_keys;
+        DEFINE_RANDOM_KEY_TABLE
 
         TABLE active_bet {
             uint64_t id;
