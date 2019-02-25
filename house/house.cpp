@@ -67,6 +67,15 @@ namespace godapp {
         });
     }
 
+    void house::setrandkey(capi_public_key randomness_key){
+        require_auth(_self);
+
+        randkeys_index random_keys(_self, _self.value);
+        table_upsert(random_keys, _self, 0, [&](auto& k){
+            k.key = randomness_key;
+        });
+    }
+
     /**
      * Receive transfer from games, and check payment status
      */

@@ -32,7 +32,6 @@ namespace godapp {
     dice::dice(name receiver, name code, datastream<const char *> ds) :
     contract(receiver, code, ds),
     _globals(_self, _self.value),
-    _random_keys(_self, _self.value),
     _active_bets(_self, _self.value) {
     }
 
@@ -42,14 +41,6 @@ namespace godapp {
     }
 
     DEFINE_SET_GLOBAL(dice)
-
-    void dice::setrandkey(capi_public_key randomness_key){
-        require_auth(_self);
-
-        table_upsert(_random_keys, _self, 0, [&](auto& k){
-            k.key = randomness_key;
-        });
-    }
 
     asset reward_amount(asset bet_asset, uint8_t bet_number) {
         return bet_asset * (100 - HOUSE_EDGE) / bet_number;
@@ -87,7 +78,8 @@ namespace godapp {
         auto activebets_itr = _active_bets.find( bet_id );
         eosio_assert(activebets_itr != _active_bets.end(), "Bet doesn't exist");
 
-        auto key_entry = _random_keys.get(0);
+        randkeys_index random_keys(HOUSE_ACCOUNT, HOUSE_ACCOUNT.value);
+        auto key_entry = random_keys.get(0);
         random random_gen = random_from_sig(key_entry.key, activebets_itr->seed, sig);
         uint64_t roll_value = random_gen.generator(MAX_ROLL_NUM);
 

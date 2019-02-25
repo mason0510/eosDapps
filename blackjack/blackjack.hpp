@@ -6,6 +6,7 @@
 #include <eosiolib/transaction.hpp>
 
 #include "../common/constants.hpp"
+#include "../common/game_contracts.hpp"
 #include "../common/contracts.hpp"
 #include "../common/random.hpp"
 
@@ -17,6 +18,7 @@ namespace godapp {
         public:
 
         DEFINE_GLOBAL_TABLE
+        DEFINE_RANDOM_KEY_TABLE
 
         TABLE history_item {
             uint64_t id;
@@ -66,13 +68,23 @@ namespace godapp {
         > games_table;
         games_table _games;
 
+        TABLE pending_action {
+            uint64_t game_id;
+            uint8_t action;
+            capi_checksum256 seed;
+
+            uint64_t primary_key() const { return game_id; }
+        };
+        typedef multi_index<name("actions"), pending_action> action_table;
+        action_table _actions;
+
         blackjack(name receiver, name code, datastream<const char*> ds);
 
         ACTION init();
         ACTION setglobal(uint64_t key, uint64_t value);
-        ACTION deal(name player, uint64_t game_id, uint8_t action);
-        ACTION play(name player, uint64_t game_id, uint8_t action);
+        ACTION deal(name player, uint64_t id, uint8_t action, capi_signature sig);
         ACTION playeraction(name player, uint8_t action);
+        ACTION setrandkey(capi_public_key key);
         ACTION hardclose(uint64_t game_id, string reason);
         ACTION cleargames(uint32_t num);
         ACTION close(uint64_t game_id);
@@ -80,7 +92,7 @@ namespace godapp {
         ACTION pay(game_item gm, string banker_cards, string player_cards, asset payout);
     };
 
-    EOSIO_ABI_EX(blackjack, (init)(deal)(playeraction)(play)(close)(hardclose)(cleargames)(setglobal)(transfer)(pay))
+    EOSIO_ABI_EX(blackjack, (init)(deal)(playeraction)(setrandkey)(close)(hardclose)(cleargames)(setglobal)(transfer)(pay))
 }
 
 

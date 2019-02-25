@@ -178,4 +178,12 @@ namespace godapp {
         r_out.delay_sec = delay;
         r_out.send(sender.value, self);
     }
+
+    #define DEFINE_RANDOM_KEY_TABLE \
+        TABLE randkey { \
+            uint64_t id; \
+            capi_public_key key; \
+            uint64_t primary_key() const { return id; } \
+        }; \
+        typedef multi_index<name("randkeys"), randkey> randkeys_index;
 }

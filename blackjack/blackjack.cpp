@@ -133,20 +133,26 @@ namespace godapp {
         delayed_action(_self, player, name("play"), make_tuple(player, game.id, action), 0);
     }
 
-	void blackjack::play(name player, uint64_t game_id, uint8_t action) {
+	void blackjack::setrandkey(capi_public_key randomness_key){
 		require_auth(_self);
-		delayed_action(_self, player, name("deal"), make_tuple(player, game_id, action));
+
+		table_upsert(_random_keys, _self, 0, [&](auto& k){
+			k.key = randomness_key;
+		});
 	}
 
-	void blackjack::deal(name player, uint64_t id, uint8_t action) {
+	void blackjack::deal(uint64_t game_id, uint8_t action, capi_signature sig) {
 		require_auth(_self);
 
+		auto key_entry = _random_keys.get(0);
+		random random_gen = random_from_sig(key_entry.key, activebets_itr->seed, sig);
+
+		random_from_sig()
 		auto idx = _games.get_index<name("byid")>();
 		auto gm_pos = idx.find(id);
 		eosio_assert(gm_pos != idx.end() && gm_pos->id == id, "deal: game id does't exist!");
 		auto gm = *gm_pos;
 
-		random random_gen(id);
 		switch (action) {
 		    case PLAYER_ACTION_NEW: {
                 gm.banker_cards.push_back(random_card(random_gen));

@@ -68,7 +68,7 @@
             uint64_t close_time; \
             uint64_t primary_key() const { return id; } \
         }; \
-        typedef multi_index<name("history"), history> history_table; \
+        typedef multi_index<name("histories"), history> history_table; \
 
 #define DEFINE_RESULTS_TABLE \
         TABLE result { \
@@ -89,11 +89,10 @@ public: \
         ACTION newround(symbol symbol_type); \
         ACTION hardclose(uint64_t game_id); \
         ACTION transfer(name from, name to, asset quantity, string memo); \
-        ACTION setrandkey(capi_public_key randomness_key); \
 private: \
         void initsymbol(symbol sym); \
 
-#define STANDARD_ACTIONS (init)(reveal)(transfer)(newround)(setglobal)(hardclose)(setrandkey)
+#define STANDARD_ACTIONS (init)(reveal)(transfer)(newround)(setglobal)(hardclose)
 
 #define DEFINE_CONSTRUCTOR(NAME) \
     NAME::NAME(name receiver, name code, datastream<const char*> ds): \
@@ -102,7 +101,6 @@ private: \
         _games(_self, _self.value), \
         _bets(_self, _self.value), \
         _results(_self, _self.value), \
-        _random_keys(_self, _self.value), \
         _bet_amount(_self, _self.value) { \
     }
 
@@ -212,7 +210,8 @@ private: \
         \
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!"); \
         eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && (timestamp + GAME_REVEAL_PRESET) >= gm_pos->end_time, "Can not reveal yet"); \
-        capi_public_key random_key = _random_keys.get(0, "random key is not set").key; \
+        randkeys_index random_keys(HOUSE_ACCOUNT, HOUSE_ACCOUNT.value); \
+        capi_public_key random_key = random_keys.get(0, "random key is not set").key; \
         random random_gen = random_from_sig(random_key, gm_pos->seed, signature); \
         RESULT result(random_gen); \
         history_table history(_self, _self.value); \
@@ -290,5 +289,4 @@ private: \
         DEFINE_NEW_ROUND_FUNCTION(NAME) \
         DEFINE_INIT_SYMBOL_FUNCTION(NAME) \
         DEFINE_HARDCLOSE_FUNCTION(NAME) \
-        DEFINE_TRANSFER_FUNCTION(NAME) \
-        DEFINE_SET_RANDOM_KEY(NAME)
+        DEFINE_TRANSFER_FUNCTION(NAME)

@@ -22,23 +22,6 @@ namespace godapp {
                                                      {self, HOUSE_ACCOUNT, quantity, player.to_string()});
     }
 
-#define DEFINE_RANDOM_KEY_TABLE \
-    TABLE randkey { \
-        uint64_t id; \
-        capi_public_key key; \
-        uint64_t primary_key() const { return id; } \
-    }; \
-    typedef multi_index<name("randkeys"), randkey> randkeys_index; \
-    randkeys_index _random_keys;
-
-#define DEFINE_SET_RANDOM_KEY(NAME) \
-    void NAME::setrandkey(capi_public_key randomness_key){ \
-        require_auth(_self); \
-        table_upsert(_random_keys, _self, 0, [&](auto& k){ \
-            k.key = randomness_key; \
-        }); \
-    }
-
     struct seed_data {
         uint64_t game;
         uint64_t game_id;

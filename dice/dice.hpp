@@ -52,9 +52,7 @@ namespace godapp {
 
         ACTION init();
         ACTION setglobal(uint64_t key, uint64_t value);
-        ACTION setrandkey(capi_public_key key);
         ACTION reveal(uint64_t bet_id, capi_signature sig);
-
         ACTION pay(uint64_t bet_id, name player, asset bet, asset payout, capi_checksum256 seed,
                 uint8_t bet_value, uint64_t roll_value, name referer);
         ACTION transfer(name from, name to, asset quantity, string memo);
@@ -62,5 +60,5 @@ namespace godapp {
         dice(name receiver, name code, datastream<const char *> ds);
     };
 
-    EOSIO_ABI_EX(dice, (init)(transfer)(reveal)(setrandkey)(pay))
+    EOSIO_ABI_EX(dice, (init)(transfer)(reveal)(pay))
 }
