@@ -66,9 +66,10 @@
             uint8_t bet_type; \
             asset payout; \
             uint64_t close_time; \
+            uint64_t result; \
             uint64_t primary_key() const { return id; } \
         }; \
-        typedef multi_index<name("history"), history> history_table; \
+        typedef multi_index<name("histories"), history> history_table; \
 
 #define DEFINE_RESULTS_TABLE \
         TABLE result { \
@@ -250,6 +251,7 @@ private: \
                 a.history_id = history_id; \
                 a.player = itr->player; \
                 a.bet = bet; \
+                a.result = result.result; \
                 a.bet_type = bet_type; \
                 a.payout = payout; \
                 a.close_time = timestamp; \
