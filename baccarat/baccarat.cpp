@@ -30,7 +30,7 @@ namespace godapp {
         };
         //      BANKER, PLAYER, TIE,    DRAGON, PANDA
 
-        baccarat_result(random random_gen) {
+        baccarat_result(random& random_gen) {
             draw_cards(banker_cards, banker_point, player_cards, player_point, random_gen);
 
             result = 0;
