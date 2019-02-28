@@ -212,7 +212,7 @@ private: \
         \
         eosio_assert(gm_pos != idx.end() && gm_pos->id == game_id, "reveal: game id does't exist!"); \
         eosio_assert(gm_pos->status == GAME_STATUS_ACTIVE && (timestamp + GAME_REVEAL_PRESET) >= gm_pos->end_time, "Can not reveal yet"); \
-        randkeys_index random_keys(_self, _self.value); \
+        randkeys_index random_keys(HOUSE_ACCOUNT, HOUSE_ACCOUNT.value); \
         capi_public_key random_key = random_keys.get(0, "random key is not set").key; \
         random random_gen = random_from_sig(random_key, gm_pos->seed, signature); \
         doReveal(game_id, random_gen); \
