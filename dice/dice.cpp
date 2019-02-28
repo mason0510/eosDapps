@@ -120,6 +120,6 @@ namespace godapp {
         require_recipient( player );
 
         make_payment(_self, player, bet, payout, referer,
-                     payout.amount > 0 ? "[dapp365] Dice game win!" : "[dapp365] Dice game lose!");
+                     payout.amount > 0 ? "[Dapp365] Dice game win!" : "[Dapp365] Dice game lose!");
     }
 }
