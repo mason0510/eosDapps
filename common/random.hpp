@@ -74,11 +74,7 @@ namespace godapp {
     }
 
     uint64_t random::gen(capi_checksum256 &seed, uint64_t max) const {
-        if (max <= 0) {
-            return 0;
-        }
         const uint64_t *p64 = reinterpret_cast<const uint64_t *>(&seed);
-        uint64_t r = p64[1] % max;
-        return r;
+        return max <= 0 ? p64[1] : p64[1] % max;
     }
 }
