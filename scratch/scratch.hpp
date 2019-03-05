@@ -24,7 +24,7 @@ namespace godapp {
             uint64_t    id;
             name        player;
             name        referer;
-
+            uint8_t     card_type;
             asset       price;
             asset       reward;
             uint64_t    result;
@@ -39,6 +39,19 @@ namespace godapp {
             indexed_by< name("byid"), const_mem_fun<active_card, uint64_t, &active_card::byid> >
         > card_index;
         card_index _active_cards;
+
+
+        TABLE available_card {
+            name player;
+            uint32_t price1_count;
+            uint32_t price2_count;
+            uint32_t price3_count;
+            uint32_t price4_count;
+
+            uint64_t primary_key() const { return player.value; };
+        };
+        typedef eosio::multi_index<name("cards"), available_card> available_card_index;
+        available_card_index _available_cards;
 
         TABLE history {
             uint64_t id;
@@ -56,6 +69,7 @@ namespace godapp {
         typedef eosio::multi_index<name("histories"), history> history_index;
 
         class line_result {
+        public:
             uint64_t    type;
             string      result;
         };
@@ -63,12 +77,17 @@ namespace godapp {
         ACTION init();
         ACTION setglobal(uint64_t key, uint64_t value);
         ACTION reveal(uint64_t card_id, capi_signature sig);
-        ACTION pay(uint64_t card_id, name player, asset price, asset reward, capi_checksum256 seed,
-                line_result result[5], name referer);
+        ACTION receipt(uint64_t card_id, name player, asset price, asset reward, capi_checksum256 seed,
+            std::vector<line_result> result, name referer);
         ACTION transfer(name from, name to, asset quantity, string memo);
+        ACTION play(name player, asset price, name referer, uint8_t card_type);
+        ACTION claim(name player);
 
         scratch(name receiver, name code, datastream<const char *> ds);
+
+    private:
+        void scratch_card(name player, name referer, asset price, uint8_t card_type);
     };
 
-    EOSIO_ABI_EX(scratch, (init)(setglobal)(transfer)(reveal)(pay))
+    EOSIO_ABI_EX(scratch, (init)(setglobal)(transfer)(reveal)(receipt)(claim)(play))
 }
