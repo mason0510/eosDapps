@@ -80,13 +80,13 @@ namespace godapp {
         ACTION receipt(uint64_t card_id, name player, asset price, asset reward, capi_checksum256 seed,
             std::vector<line_result> result, name referer);
         ACTION transfer(name from, name to, asset quantity, string memo);
-        ACTION play(name player, asset price, name referer, uint8_t card_type);
+        ACTION play(name player, uint8_t card_type, asset price, name referer);
         ACTION claim(name player);
 
         scratch(name receiver, name code, datastream<const char *> ds);
 
     private:
-        void scratch_card(name player, name referer, asset price, uint8_t card_type);
+        void scratch_card(name player, uint8_t card_type, asset price, name referer);
     };
 
     EOSIO_ABI_EX(scratch, (init)(setglobal)(transfer)(reveal)(receipt)(claim)(play))

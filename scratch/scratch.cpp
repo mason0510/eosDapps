@@ -95,36 +95,36 @@ namespace godapp {
 
         auto itr = _active_cards.find(from.value);
         if(itr == _active_cards.end()) {
-            scratch_card(from, referer, asset(price, quantity.symbol), card_type);
+            scratch_card(from, card_type, asset(price, quantity.symbol), referer);
             count--;
         }
 
         if (count > 0) {
-            table_upsert(_available_cards, from, from.value, [&](auto& a) {
+            table_upsert(_available_cards, _self, from.value, [&](auto& a) {
                 a.player = from;
-                a.price1_count += (price == 1 ? count : 0);
-                a.price2_count += (price == 10 ? count : 0);
+                a.price1_count += (price == 1000 ? count : 0);
+                a.price2_count += (price == 10000 ? count : 0);
             });
         }
     }
 
-    void scratch::play(name player, asset price, name referer, uint8_t card_type) {
+    void scratch::play(name player, uint8_t card_type, asset price, name referer) {
         require_auth(player);
 
         auto itr = _available_cards.find(player.value);
         eosio_assert(itr != _available_cards.end(), "You have no card available");
         eosio_assert(price.symbol.raw() == EOS_SYMBOL.raw(), "Only EOS supported");
-        eosio_assert((price.amount == 1000 && itr->price1_count > 0) || (price.amount == 10000 && itr->price1_count > 0),
+        eosio_assert((price.amount == 1000 && itr->price1_count > 0) || (price.amount == 10000 && itr->price2_count > 0),
             "You have no card available");
 
-        _available_cards.modify(itr, player, [&](auto& a) {
+        _available_cards.modify(itr, _self, [&](auto& a) {
                 a.price1_count -= (price.amount == 1000 ? 1 : 0);
                 a.price2_count -= (price.amount == 10000 ? 1 : 0);
         });
-        scratch_card(player, referer, price, card_type);
+        scratch_card(player, card_type, price, referer);
     }
 
-    void scratch::scratch_card(name player, name referer, asset price, uint8_t card_type) {
+    void scratch::scratch_card(name player, uint8_t card_type, asset price, name referer) {
         uint32_t _now = now();
         eosio::time_point_sec time = eosio::time_point_sec( _now );
 
