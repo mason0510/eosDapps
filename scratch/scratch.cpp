@@ -93,6 +93,8 @@ namespace godapp {
         eosio_assert(quantity.amount == price * count, "Invalid transfer amount");
         transfer_to_house(_self, quantity, from, quantity.amount);
 
+        doClaim(from);
+
         auto itr = _active_cards.find(from.value);
         if(itr == _active_cards.end()) {
             scratch_card(from, card_type, asset(price, quantity.symbol), referer);
@@ -110,6 +112,8 @@ namespace godapp {
 
     void scratch::play(name player, uint8_t card_type, asset price, name referer) {
         require_auth(player);
+
+        doClaim(player);
 
         auto itr = _available_cards.find(player.value);
         eosio_assert(itr != _available_cards.end(), "You have no card available");
@@ -193,16 +197,33 @@ namespace godapp {
             a.reward = reward;
             a.result = result;
         });
+
+        uint64_t history_index = increment_global_mod(_globals, GLOBAL_ID_HISTORY_INDEX, BET_HISTORY_LEN);
+        history_table history(_self, _self.value);
+        table_upsert(history, _self, history_index, [&](auto& a) {
+            a.id = history_index;
+            a.card_id = card_id;
+            a.player = active_card_itr->player;
+            a.price = active_card_itr->price;
+            a.reward = reward;
+            a.result = result;
+            a.time = active_card_itr->time;
+        });
     }
 
     void scratch::claim(name player){
         require_auth(player);
+        doClaim(player);
+    }
+
+    void scratch::doClaim(name player){
         auto itr = _active_cards.find(player.value);
-        eosio_assert(itr->result != 0, "Card not revealed yet");
+        if (itr != _active_cards.end()) {
+            eosio_assert(itr->result != 0, "Card not revealed yet");
 
-        make_payment(_self, player, itr->price, itr->reward, itr->referer, "[Dapp365] Scratch Card Reward");
-        _active_cards.erase(itr);
-
+            make_payment(_self, player, itr->price, itr->reward, itr->referer, "[Dapp365] Scratch Card Reward");
+            _active_cards.erase(itr);
+        }
     }
 
     void scratch::receipt(uint64_t card_id, name player, asset price, asset reward,

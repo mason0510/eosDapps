@@ -55,7 +55,7 @@ namespace godapp {
 
         TABLE history {
             uint64_t id;
-            uint64_t bet_id;
+            uint64_t card_id;
             name player;
 
             asset price;
@@ -66,7 +66,7 @@ namespace godapp {
 
             uint64_t primary_key() const { return id; };
         };
-        typedef eosio::multi_index<name("histories"), history> history_index;
+        typedef eosio::multi_index<name("histories"), history> history_table;
 
         class line_result {
         public:
@@ -87,6 +87,7 @@ namespace godapp {
 
     private:
         void scratch_card(name player, uint8_t card_type, asset price, name referer);
+        void doClaim(name player);
     };
 
     EOSIO_ABI_EX(scratch, (init)(setglobal)(transfer)(reveal)(receipt)(claim)(play))
