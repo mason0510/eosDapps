@@ -42,7 +42,8 @@ namespace godapp {
 	contract(receiver, code, ds),
 	_globals(_self, _self.value),
 	_results(_self, _self.value),
-	_games(_self, _self.value) {
+	_games(_self, _self.value),
+	_actions(_self, _self.value) {
 	}
 
 	void blackjack::init() {
@@ -98,6 +99,7 @@ namespace godapp {
 	    param_reader reader(memo);
 	    uint8_t action = reader.next_param_i("action is missing");
 	    name referer = reader.get_referer(from);
+		uint64_t game_id = increment_global(_globals, G_ID_GAME_ID);
 
 	    if (action == PLAYER_ACTION_NEW) {
 	        auto pos = _games.find(from.value);
@@ -105,7 +107,7 @@ namespace godapp {
 
 	        game_item gm;
 	        gm.player  = from;
-	        gm.id = increment_global(_globals, G_ID_GAME_ID);
+	        gm.id = game_id;
 	        gm.start_time = current_time();
 	        gm.close_time = 0;
 	        gm.referer = referer;
@@ -118,91 +120,84 @@ namespace godapp {
 	        });
 
 	        // deal the initial cards to the game as a new game
-	        delayed_action(_self, from, name("play"), make_tuple(from, gm.id, ((uint8_t) PLAYER_ACTION_NEW)), 0);
+	        make_action(game_id, PLAYER_ACTION_NEW);
 	    } else {
 	        eosio_assert(false, "unknown action to play");
 	    }
 	}
 
-    void blackjack::playeraction(name player, uint8_t action) {
+    void blackjack::playeraction(name player, uint64_t game_id, uint8_t action) {
         require_auth(player);
 
         eosio_assert(action != PLAYER_ACTION_NEW, "new game can only be started via transfer");
         auto game = _games.get(player.value, "you have no game in progress!");
         eosio_assert(game.status == GAME_STATUS_ACTIVE, "Your game is not active!");
-        delayed_action(_self, player, name("play"), make_tuple(player, game.id, action), 0);
+		eosio_assert(game.id == game_id, "Game Id does not match");
+        make_action(game_id, action);
     }
 
-	void blackjack::setrandkey(capi_public_key randomness_key){
-		require_auth(_self);
+	void blackjack::resolve(uint64_t game_id, capi_signature sig) {
+		auto action_itr = _actions.find(game_id);
+		eosio_assert(action_itr != _actions.end(), "No pending actions");
 
-		table_upsert(_random_keys, _self, 0, [&](auto& k){
-			k.key = randomness_key;
-		});
-	}
-
-	void blackjack::deal(uint64_t game_id, uint8_t action, capi_signature sig) {
-		require_auth(_self);
-
-		auto key_entry = _random_keys.get(0);
-		random random_gen = random_from_sig(key_entry.key, activebets_itr->seed, sig);
-
-		random_from_sig()
 		auto idx = _games.get_index<name("byid")>();
-		auto gm_pos = idx.find(id);
-		eosio_assert(gm_pos != idx.end() && gm_pos->id == id, "deal: game id does't exist!");
-		auto gm = *gm_pos;
+		auto gm_pos = idx.find(game_id);
+		if (gm_pos != idx.end() && gm_pos->id == game_id) {
+			auto gm = *gm_pos;
 
-		switch (action) {
-		    case PLAYER_ACTION_NEW: {
-                gm.banker_cards.push_back(random_card(random_gen));
+			randkeys_index random_keys(HOUSE_ACCOUNT, HOUSE_ACCOUNT.value);
+			auto key_entry = random_keys.get(0);
+			random random_gen = random_from_sig(key_entry.key, action_itr->seed, sig);
 
-                gm.player_cards.push_back(random_card(random_gen));
-                gm.player_cards.push_back(random_card(random_gen));
+			switch (action_itr->action) {
+				case PLAYER_ACTION_NEW: {
+					gm.banker_cards.push_back(random_card(random_gen));
 
-                // finish the game immediately if user has a black jack in starting hand
-                uint8_t player_points = cal_points(gm.player_cards);
-                if (player_points == GAME_MAX_POINTS) {
-                    gm.status = GAME_STATUS_STOOD;
-                }
-                break;
-		    }
-		    case PLAYER_ACTION_HIT: {
-                gm.player_cards.push_back(random_card(random_gen));
-                uint8_t player_points = cal_points(gm.player_cards);
-                if (player_points >= GAME_MAX_POINTS) {
-                    gm.status = GAME_STATUS_STOOD;
-                }
-		        break;
-		    }
-		    case PLAYER_ACTION_STAND: {
-                gm.status = GAME_STATUS_STOOD;
-		        break;
-		    }
-            case PLAYER_ACTION_SURRENDER: {
-                eosio_assert(gm.player_cards.size() == 2, "can surrender only after first deal!");
-                gm.status = GAME_STATUS_STOOD;
-                gm.result = GAME_RESULT_SURRENDER;
-                break;
-            }
-            default: {
-                eosio_assert(false, "dealed: unknown action");
-            }
+					gm.player_cards.push_back(random_card(random_gen));
+					gm.player_cards.push_back(random_card(random_gen));
+
+					// finish the game immediately if user has a black jack in starting hand
+					uint8_t player_points = cal_points(gm.player_cards);
+					if (player_points == GAME_MAX_POINTS) {
+						gm.status = GAME_STATUS_STOOD;
+					}
+					break;
+				}
+				case PLAYER_ACTION_HIT: {
+					gm.player_cards.push_back(random_card(random_gen));
+					uint8_t player_points = cal_points(gm.player_cards);
+					if (player_points >= GAME_MAX_POINTS) {
+						gm.status = GAME_STATUS_STOOD;
+					}
+					break;
+				}
+				case PLAYER_ACTION_STAND: {
+					gm.status = GAME_STATUS_STOOD;
+					break;
+				}
+				case PLAYER_ACTION_SURRENDER: {
+					eosio_assert(gm.player_cards.size() == 2, "can surrender only after first deal!");
+					gm.status = GAME_STATUS_STOOD;
+					gm.result = GAME_RESULT_SURRENDER;
+					break;
+				}
+				default: {
+					eosio_assert(false, "dealed: unknown action");
+				}
+			}
+
+			idx.modify(gm_pos, _self, [&](auto& info) {
+				info = gm;
+			});
+
+			if (gm.status == GAME_STATUS_STOOD) {
+				close(gm.id, random_gen);
+			}
 		}
-
-        idx.modify(gm_pos, _self, [&](auto& info) {
-            info = gm;
-        });
-
-        if (gm.status == GAME_STATUS_STOOD) {
-            delayed_action(_self, player, name("close"), make_tuple(gm.id), 0);
-        }
+		_actions.erase(action_itr);
 	}
 
-	void blackjack::close(uint64_t id) {
-		require_auth(_self);
-
-		random random_gen(id);
+	void blackjack::close(uint64_t id, random& random_gen) {
 		auto ct = current_time();
 
 		auto game_iter = _games.get_index<name("byid")>();
@@ -312,12 +307,18 @@ namespace godapp {
 		uint32_t count = 0;
 		for (auto itr=idx.begin(); itr!=idx.end() && count < num; count++) {
 			if (itr->start_time + GAME_MAX_TIME <= ct) {
-				if (itr->status != GAME_STATUS_CLOSED) {
-                    close(itr->id);
-                }
                 itr = idx.erase(itr);
 			}
 		}
+	}
+
+	void blackjack::make_action(uint64_t id, uint8_t action) {
+		capi_checksum256 seed = create_seed(_self.value, id);
+		_actions.emplace(_self, [&](auto &a) {
+			a.game_id = id;
+			a.action = action;
+			a.seed = seed;
+		});
 	}
 
     void blackjack::pay(game_item gm, string banker_cards, string player_cards, asset payout) {

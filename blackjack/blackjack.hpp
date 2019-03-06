@@ -82,17 +82,19 @@ namespace godapp {
 
         ACTION init();
         ACTION setglobal(uint64_t key, uint64_t value);
-        ACTION deal(name player, uint64_t id, uint8_t action, capi_signature sig);
-        ACTION playeraction(name player, uint8_t action);
-        ACTION setrandkey(capi_public_key key);
+        ACTION resolve(uint64_t id, capi_signature sig);
+        ACTION playeraction(name player, uint64_t game_id, uint8_t action);
         ACTION hardclose(uint64_t game_id, string reason);
         ACTION cleargames(uint32_t num);
-        ACTION close(uint64_t game_id);
         ACTION transfer(name from, name to, asset quantity, string memo);
         ACTION pay(game_item gm, string banker_cards, string player_cards, asset payout);
+
+    private:
+        void make_action(uint64_t id, uint8_t action);
+        void close(uint64_t id, random& random_gen);
     };
 
-    EOSIO_ABI_EX(blackjack, (init)(deal)(playeraction)(setrandkey)(close)(hardclose)(cleargames)(setglobal)(transfer)(pay))
+    EOSIO_ABI_EX(blackjack, (init)(resolve)(playeraction)(hardclose)(cleargames)(setglobal)(transfer)(pay))
 }
 
 
