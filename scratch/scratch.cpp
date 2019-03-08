@@ -117,15 +117,21 @@ namespace godapp {
 
         auto itr = _available_cards.find(player.value);
         eosio_assert(itr != _available_cards.end(), "You have no card available");
+        eosio_assert(itr->price1_count > 0 || itr->price2_count > 0, "You have no card available");
         eosio_assert(price.symbol.raw() == EOS_SYMBOL.raw(), "Only EOS supported");
-        eosio_assert((price.amount == 1000 && itr->price1_count > 0) || (price.amount == 10000 && itr->price2_count > 0),
-            "You have no card available");
+
+        uint64_t price_amount = price.amount;
+        if (price_amount == 1000 && itr->price1_count == 0) {
+            price_amount = 10000;
+        } else if (price_amount == 10000 && itr->price2_count == 0) {
+            price_amount = 1000;
+        }
 
         _available_cards.modify(itr, _self, [&](auto& a) {
                 a.price1_count -= (price.amount == 1000 ? 1 : 0);
                 a.price2_count -= (price.amount == 10000 ? 1 : 0);
         });
-        scratch_card(player, card_type, price, referer);
+        scratch_card(player, card_type, asset(price_amount, price.symbol), referer);
     }
 
     void scratch::scratch_card(name player, uint8_t card_type, asset price, name referer) {
@@ -207,6 +213,8 @@ namespace godapp {
             a.price = active_card_itr->price;
             a.reward = reward;
             a.result = result;
+            a.card_type = active_card_itr->card_type;
+            a.seed = active_card_itr->seed;
             a.time = active_card_itr->time;
         });
     }

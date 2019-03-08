@@ -58,6 +58,9 @@ namespace godapp {
             uint64_t card_id;
             name player;
 
+            uint8_t card_type;
+            capi_checksum256 seed;
+
             asset price;
             asset reward;
             uint64_t    result;
@@ -66,7 +69,7 @@ namespace godapp {
 
             uint64_t primary_key() const { return id; };
         };
-        typedef eosio::multi_index<name("histories"), history> history_table;
+        typedef eosio::multi_index<name("history"), history> history_table;
 
         class line_result {
         public:
