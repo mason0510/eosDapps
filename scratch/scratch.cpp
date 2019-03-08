@@ -28,6 +28,8 @@
 #define TYPE_BITS       4
 #define RESULT_BITS     2
 
+#define CARD_TYPE_COUNT 1
+
 using namespace std;
 using namespace eosio;
 
@@ -49,6 +51,8 @@ reward_option rewards[] = {
     {1000, 0, 0},
     {10000, 0, 0},
 };
+
+uint64_t prices[] = {1000};
 
 namespace godapp {
     scratch::scratch(name receiver, name code, datastream<const char *> ds) :
@@ -89,7 +93,8 @@ namespace godapp {
         uint64_t count = reader.next_param_i64();
         name referer = reader.get_referer(from);
 
-        eosio_assert(price == 1000 || price == 10000, "Invalid Price");
+        eosio_assert(card_type < CARD_TYPE_COUNT, "Invalid Card");
+        eosio_assert(price == prices[card_type], "Invalid Price");
         eosio_assert(quantity.amount == price * count, "Invalid transfer amount");
         transfer_to_house(_self, quantity, from, quantity.amount);
 
@@ -104,34 +109,37 @@ namespace godapp {
         if (count > 0) {
             table_upsert(_available_cards, _self, from.value, [&](auto& a) {
                 a.player = from;
-                a.price1_count += (price == 1000 ? count : 0);
-                a.price2_count += (price == 10000 ? count : 0);
+                a.card1_count += (card_type == 0 ? count : 0);
+                a.card2_count += (card_type == 1 ? count : 0);
             });
         }
     }
 
-    void scratch::play(name player, uint8_t card_type, asset price, name referer) {
+    void scratch::play(name player, uint8_t card_type, name referer) {
         require_auth(player);
 
         doClaim(player);
 
         auto itr = _available_cards.find(player.value);
         eosio_assert(itr != _available_cards.end(), "You have no card available");
-        eosio_assert(itr->price1_count > 0 || itr->price2_count > 0, "You have no card available");
-        eosio_assert(price.symbol.raw() == EOS_SYMBOL.raw(), "Only EOS supported");
 
-        uint64_t price_amount = price.amount;
-        if (price_amount == 1000 && itr->price1_count == 0) {
+        eosio_assert(card_type < CARD_TYPE_COUNT, "Invalid Card");
+        uint64_t price_amount = prices[card_type];
+        if (card_type == 0 && itr->card1_count == 0) {
+            eosio_assert(itr->card2_count > 0, "You have no card available");
+            card_type = 1;
             price_amount = 10000;
-        } else if (price_amount == 10000 && itr->price2_count == 0) {
+        } else if (card_type == 1 && itr->card2_count == 0) {
+            eosio_assert(itr->card1_count > 0, "You have no card available");
+            card_type = 0;
             price_amount = 1000;
         }
 
         _available_cards.modify(itr, _self, [&](auto& a) {
-                a.price1_count -= (price.amount == 1000 ? 1 : 0);
-                a.price2_count -= (price.amount == 10000 ? 1 : 0);
+                a.card1_count -= (card_type == 0 ? 1 : 0);
+                a.card2_count -= (card_type == 1 ? 1 : 0);
         });
-        scratch_card(player, card_type, asset(price_amount, price.symbol), referer);
+        scratch_card(player, card_type, asset(price_amount, EOS_SYMBOL), referer);
     }
 
     void scratch::scratch_card(name player, uint8_t card_type, asset price, name referer) {

@@ -43,10 +43,10 @@ namespace godapp {
 
         TABLE available_card {
             name player;
-            uint32_t price1_count;
-            uint32_t price2_count;
-            uint32_t price3_count;
-            uint32_t price4_count;
+            uint32_t card1_count;
+            uint32_t card2_count;
+            uint32_t card3_count;
+            uint32_t card4_count;
 
             uint64_t primary_key() const { return player.value; };
         };
@@ -83,7 +83,7 @@ namespace godapp {
         ACTION receipt(uint64_t card_id, name player, asset price, asset reward, capi_checksum256 seed,
             std::vector<line_result> result, name referer);
         ACTION transfer(name from, name to, asset quantity, string memo);
-        ACTION play(name player, uint8_t card_type, asset price, name referer);
+        ACTION play(name player, uint8_t card_type, name referer);
         ACTION claim(name player);
 
         scratch(name receiver, name code, datastream<const char *> ds);
