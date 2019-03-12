@@ -184,7 +184,7 @@ namespace godapp {
                 });
             }
 
-            if (referer.value != _self.value) {
+            if (referer.value != 0 && referer.value != _self.value) {
                 asset refer_bonus = bet * REFERRAL_BOUUS / 1000;
                 pay_amount += refer_bonus.amount;
                 if (refer_bonus.amount > 0) {

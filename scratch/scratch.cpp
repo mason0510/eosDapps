@@ -7,6 +7,7 @@
 #include <eosiolib/action.hpp>
 
 #include "scratch.hpp"
+#include "../house/house.hpp"
 #include "../common/utils.hpp"
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
@@ -237,7 +238,8 @@ namespace godapp {
         if (itr != _active_cards.end()) {
             eosio_assert(itr->result != 0, "Card not revealed yet");
 
-            make_payment(_self, player, itr->price, itr->reward, itr->referer, "[Dapp365] Scratch Card Reward");
+            INLINE_ACTION_SENDER(house, pay)(HOUSE_ACCOUNT, {_self, name("active")},
+                {_self, player, itr->price, itr->reward, "[Dapp365] Scratch Card Reward", itr->referer});
             _active_cards.erase(itr);
         }
     }
