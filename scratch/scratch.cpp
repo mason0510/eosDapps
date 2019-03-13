@@ -29,7 +29,7 @@
 #define TYPE_BITS       4
 #define RESULT_BITS     2
 
-#define CARD_TYPE_COUNT 1
+#define CARD_TYPE_COUNT 2
 
 using namespace std;
 using namespace eosio;
@@ -41,7 +41,7 @@ public:
     uint64_t winNumber;
 };
 
-reward_option rewards[] = {
+reward_option rewards1[] = {
     {1, 500, 45500},
     {2, 50, 4550},
     {5, 20, 1820},
@@ -53,7 +53,37 @@ reward_option rewards[] = {
     {10000, 0, 0},
 };
 
-uint64_t prices[] = {1000};
+uint8_t card2_type[] = {
+    0, 0, 0, 1, 1, 1, 1, 1, 1, 2,
+    2, 3, 3, 4, 4, 5, 6, 7, 8, 9
+};
+reward_option rewards2_1[] = {
+    {1, 0, 66667},
+    {2, 0, 33333},
+    {5, 0, 4000},
+    {10, 0, 2000},
+    {20, 0, 1000},
+    {50, 0, 800},
+    {100, 0, 400},
+    {1000, 0, 0},
+    {10000, 0, 0},
+    {20000, 0, 0},
+};
+
+reward_option rewards2_2[] = {
+    {1, 0, 16667},
+    {2, 0, 8333},
+    {5, 0, 1000},
+    {10, 0, 500},
+    {20, 0, 250},
+    {50, 0, 200},
+    {100, 0, 100},
+    {1000, 0, 0},
+    {10000, 0, 0},
+    {20000, 0, 0},
+};
+
+uint64_t prices[] = {1000, 5000};
 
 namespace godapp {
     scratch::scratch(name receiver, name code, datastream<const char *> ds) :
@@ -116,6 +146,18 @@ namespace godapp {
         }
     }
 
+    uint32_t get_card_count(uint8_t card_type, const scratch::available_card& cards) {
+        switch (card_type) {
+            case 0:
+                return cards.card1_count;
+            case 1:
+                return cards.card2_count;
+            default:
+                eosio_assert(false, "Invalid card");
+                return 0;
+        }
+    }
+
     void scratch::play(name player, uint8_t card_type, name referer) {
         require_auth(player);
 
@@ -124,16 +166,24 @@ namespace godapp {
         auto itr = _available_cards.find(player.value);
         eosio_assert(itr != _available_cards.end(), "You have no card available");
 
-        eosio_assert(card_type < CARD_TYPE_COUNT, "Invalid Card");
+        eosio_assert(card_type < CARD_TYPE_COUNT, "Invalid Card Type");
         uint64_t price_amount = prices[card_type];
-        if (card_type == 0 && itr->card1_count == 0) {
-            eosio_assert(itr->card2_count > 0, "You have no card available");
-            card_type = 1;
-            price_amount = 10000;
-        } else if (card_type == 1 && itr->card2_count == 0) {
-            eosio_assert(itr->card1_count > 0, "You have no card available");
-            card_type = 0;
-            price_amount = 1000;
+        uint32_t card_count = get_card_count(card_type, *itr);
+
+        if (card_count == 0) {
+            for (int i = 0; i < CARD_TYPE_COUNT; i++) {
+                if (i != card_type) {
+                    card_count = get_card_count(i, *itr);
+                    if (card_count > 0) {
+                        card_type = i;
+                        price_amount = prices[card_type];
+                        break;
+                    }
+                }
+            }
+        }
+        if (card_count == 0) {
+            eosio_assert(false, "You have no card available");
         }
 
         _available_cards.modify(itr, _self, [&](auto& a) {
@@ -163,6 +213,61 @@ namespace godapp {
         });
     }
 
+    uint64_t resolveCard1(random& random_gen, std::vector<scratch::line_result>& result_detail, const asset& price, asset& reward) {
+        uint64_t reward_seed = random_gen.generator(0);
+        uint64_t result = 0;
+        for (int i=0; i<5; ++i) {
+            uint8_t reward_type = reward_seed % 10;
+            reward_type = max(0, reward_type - 1);
+            reward_seed /= 10;
+
+            result <<= TYPE_BITS;
+            result |= reward_type;
+
+            reward_option& option = rewards1[reward_type];
+            uint64_t roll = random_gen.generator(100000);
+            uint8_t roll_result = RESULT_MISS;
+
+            if (roll < option.bonusNumber) {
+                roll_result = RESULT_BONUS;
+                reward += price * option.payout * 10;
+            } else if (roll < option.winNumber) {
+                roll_result = RESULT_HIT;
+                reward += price * option.payout;
+            }
+            result <<= RESULT_BITS;
+            result |= roll_result;
+
+            result_detail.push_back({option.payout, result_string(roll_result)});
+        }
+        return result;
+    }
+
+    uint64_t resolveCard2(random& random_gen, std::vector<scratch::line_result>& result_detail, const asset& price, asset& reward) {
+        uint64_t reward_seed = random_gen.generator(0);
+        uint64_t result = 0;
+        for (int i=0; i<5; ++i) {
+            uint8_t reward_type = card2_type[reward_seed % 20];
+            reward_seed /= 20;
+
+            result <<= TYPE_BITS;
+            result |= reward_type;
+
+            reward_option& option = i == 0 ? rewards2_1[reward_type] : rewards2_2[reward_type];
+            uint64_t roll = random_gen.generator(100000);
+            uint8_t roll_result = RESULT_MISS;
+            if (roll < option.winNumber) {
+                roll_result = RESULT_HIT;
+                reward += price * option.payout;
+            }
+            result <<= RESULT_BITS;
+            result |= roll_result;
+
+            result_detail.push_back({option.payout, result_string(roll_result)});
+        }
+        return result;
+    }
+
     void scratch::reveal(uint64_t card_id, capi_signature sig){
         auto idx = _active_cards.get_index<name("byid")>();
         auto active_card_itr = idx.find(card_id);
@@ -173,34 +278,19 @@ namespace godapp {
         auto key_entry = random_keys.get(0);
         random random_gen = random_from_sig(key_entry.key, active_card_itr->seed, sig);
 
-        uint64_t reward_seed = random_gen.generator(0);
         uint64_t result = 0;
         asset reward(0, active_card_itr->price.symbol);
-
         std::vector<line_result> result_detail;
-        for (int i=0; i<5; ++i) {
-            uint8_t reward_type = reward_seed % 10;
-            reward_type = max(0, reward_type - 1);
-            reward_seed /= 10;
 
-            result <<= TYPE_BITS;
-            result |= reward_type;
-
-            reward_option& option = rewards[reward_type];
-            uint64_t roll = random_gen.generator(100000);
-            uint8_t roll_result = RESULT_MISS;
-
-            if (roll < option.bonusNumber) {
-                roll_result = RESULT_BONUS;
-                reward += active_card_itr->price * option.payout * 10;
-            } else if (roll < option.winNumber) {
-                roll_result = RESULT_HIT;
-                reward += active_card_itr->price * option.payout;
-            }
-            result <<= RESULT_BITS;
-            result |= roll_result;
-
-            result_detail.push_back({option.payout, result_string(roll_result)});
+        switch (active_card_itr->card_type) {
+            case 0:
+                result = resolveCard1(random_gen, result_detail, active_card_itr->price, reward);
+                break;
+            case 1:
+                result = resolveCard2(random_gen, result_detail, active_card_itr->price, reward);
+                break;
+            default:
+                eosio_assert(false, "Invalid Card Type");
         }
 
         delayed_action(_self, active_card_itr->player, name("receipt"),
