@@ -94,7 +94,7 @@ namespace godapp {
 	    if (!check_transfer(this, from, to, quantity, memo)) {
 	        return;
         }
-	    transfer_to_house(_self, quantity, from, (quantity * 5 / 2).amount);
+	    transfer_to_house(_self, quantity, from, quantity.amount);
 
 	    param_reader reader(memo);
 	    uint8_t action = reader.next_param_i("action is missing");
