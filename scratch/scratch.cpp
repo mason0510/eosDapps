@@ -182,9 +182,7 @@ namespace godapp {
                 }
             }
         }
-        if (card_count == 0) {
-            eosio_assert(false, "You have no card available");
-        }
+        eosio_assert(card_count > 0, "You have no card available");
 
         _available_cards.modify(itr, _self, [&](auto& a) {
                 a.card1_count -= (card_type == 0 ? 1 : 0);
