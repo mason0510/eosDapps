@@ -29,7 +29,7 @@
 #define TYPE_BITS       4
 #define RESULT_BITS     2
 
-#define CARD_TYPE_COUNT 2
+#define CARD_TYPE_COUNT 3
 
 using namespace std;
 using namespace eosio;
@@ -83,7 +83,44 @@ reward_option rewards2_2[] = {
     {40000, 0, 0},
 };
 
-uint64_t prices[] = {1000, 5000};
+reward_option rewards3[] = {
+    // step 1
+    {10, 1, 10000},
+    {0, 2, 47000},
+    {40, 3, 48000},
+    {0, 5, 98000},
+    {30, 6, 100000},
+
+    // step 2
+    {15, 7, 2000},
+    {0, 9, 52000},
+    {10, 10, 61000},
+    {100, 11, 61500},
+    {0, 12, 97700},
+    {500, 13, 97800},
+    {250, 14, 98000},
+    {15, 15, 100000},
+
+    // step 3
+    {0, 16, 50000},
+    {50, 17, 52000},
+    {0, 19, 100000},
+
+    // step 4
+    {0, 21, 90000},
+    {1, 22, 100000},
+
+    // step 5
+    {0, 24, 99620},
+    {500, 25, 99700},
+    {200, 26, 100000},
+};
+
+uint8_t card3_step[] = {
+    0, 5, 13, 16, 18, 21
+};
+
+uint64_t prices[] = {1000, 5000, 10000};
 
 namespace godapp {
     scratch::scratch(name receiver, name code, datastream<const char *> ds) :
@@ -142,6 +179,7 @@ namespace godapp {
                 a.player = from;
                 a.card1_count += (card_type == 0 ? count : 0);
                 a.card2_count += (card_type == 1 ? count : 0);
+                a.card3_count += (card_type == 2 ? count : 0);
             });
         }
     }
@@ -152,6 +190,8 @@ namespace godapp {
                 return cards.card1_count;
             case 1:
                 return cards.card2_count;
+            case 2:
+                return cards.card3_count;
             default:
                 eosio_assert(false, "Invalid card");
                 return 0;
@@ -187,6 +227,7 @@ namespace godapp {
         _available_cards.modify(itr, _self, [&](auto& a) {
                 a.card1_count -= (card_type == 0 ? 1 : 0);
                 a.card2_count -= (card_type == 1 ? 1 : 0);
+                a.card3_count -= (card_type == 2 ? 1 : 0);
         });
         scratch_card(player, card_type, asset(price_amount, EOS_SYMBOL), referer);
     }
@@ -266,6 +307,40 @@ namespace godapp {
         return result;
     }
 
+    uint64_t resolveCard3(random& random_gen, std::vector<scratch::line_result>& result_detail, const asset& price, asset& reward) {
+        uint64_t result = 0;
+        uint8_t  currentStep = 0;
+        for (int i=0; i<5; ++i) {
+            uint64_t roll = random_gen.generator(100000);
+
+            uint8_t steps = 0;
+            uint64_t payout = 0;
+
+            for (int j=card3_step[i]; j<card3_step[i+1]; j++) {
+                auto option = rewards3[j];
+                if (roll < option.winNumber) {
+                    steps = ((uint8_t) option.bonusNumber) - currentStep;
+                    currentStep = (uint8_t) option.bonusNumber;
+                    payout = option.payout;
+                    break;
+                }
+            }
+            result <<= TYPE_BITS;
+            result |= steps;
+
+            uint8_t roll_result = RESULT_MISS;
+            if (payout > 0) {
+                roll_result = RESULT_HIT;
+                reward += price * payout / 10;
+            }
+            result <<= RESULT_BITS;
+            result |= roll_result;
+
+            result_detail.push_back({currentStep, std::to_string(((float_t) payout) / 10)});
+        }
+        return result;
+    }
+
     void scratch::reveal(uint64_t card_id, capi_signature sig){
         auto idx = _active_cards.get_index<name("byid")>();
         auto active_card_itr = idx.find(card_id);
@@ -286,6 +361,9 @@ namespace godapp {
                 break;
             case 1:
                 result = resolveCard2(random_gen, result_detail, active_card_itr->price, reward);
+                break;
+            case 2:
+                result = resolveCard3(random_gen, result_detail, active_card_itr->price, reward);
                 break;
             default:
                 eosio_assert(false, "Invalid Card Type");
