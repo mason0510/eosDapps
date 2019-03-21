@@ -197,18 +197,11 @@ namespace godapp {
 		_actions.erase(action_itr);
 	}
 
-	void blackjack::close(uint64_t id, random& random_gen) {
-		auto ct = current_time();
-
-		auto game_iter = _games.get_index<name("byid")>();
-		auto gm_pos = game_iter.find(id);
-		eosio_assert(gm_pos != game_iter.end() && gm_pos->id == id, "game id doesn't exist!");
-		auto gm = *gm_pos;
-
-		asset payout(0, gm.bet.symbol);
-		if (gm.status != GAME_STATUS_STOOD) {
-		    // force close all stood games
-		    gm.result = GAME_RESULT_LOSE;
+    asset doClose(blackjack::game_item& gm, random& random_gen) {
+        asset payout(0, gm.bet.symbol);
+        if (gm.status != GAME_STATUS_STOOD) {
+            // force close all stood games
+            gm.result = GAME_RESULT_LOSE;
         } else if (gm.result == GAME_RESULT_SURRENDER) {
             // return half of the bet if it's a surrender
             payout = gm.bet / 2;
@@ -254,9 +247,19 @@ namespace godapp {
             }
         }
 
-		gm.status = GAME_STATUS_CLOSED;
-		gm.close_time = ct;
+        gm.status = GAME_STATUS_CLOSED;
+        gm.close_time = current_time();
 
+        return payout;
+    }
+
+	void blackjack::close(uint64_t id, random& random_gen) {
+		auto game_iter = _games.get_index<name("byid")>();
+		auto gm_pos = game_iter.find(id);
+		eosio_assert(gm_pos != game_iter.end() && gm_pos->id == id, "game id doesn't exist!");
+		auto gm = *gm_pos;
+
+        asset payout = doClose(gm, random_gen);
 		game_iter.modify(gm_pos, _self, [&](auto& info) {
 			info = gm;
 		});

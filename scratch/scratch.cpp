@@ -299,7 +299,7 @@ namespace godapp {
             result <<= RESULT_BITS;
             result |= roll_result;
 
-            result_detail.push_back({(uint64_t)(price * option.payout / 1000).amount, result_string(roll_result)});
+            result_detail.push_back({option.payout, result_string(roll_result)});
         }
         return result;
     }
@@ -324,7 +324,7 @@ namespace godapp {
             result <<= RESULT_BITS;
             result |= roll_result;
 
-            result_detail.push_back({(uint64_t)(price * option.payout / 1000).amount, result_string(roll_result)});
+            result_detail.push_back({option.payout, result_string(roll_result)});
         }
         return result;
     }
@@ -383,7 +383,7 @@ namespace godapp {
             result <<= RESULT_BITS;
             result |= roll_result;
 
-            result_detail.push_back({(uint64_t)(price * option.payout / 1000).amount, result_string(roll_result)});
+            result_detail.push_back({option.payout * 5, result_string(roll_result)});
         }
         return result;
     }
