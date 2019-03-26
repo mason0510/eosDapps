@@ -15,7 +15,7 @@ namespace godapp {
 
         string next_param(const char* error_msg = "param missing") {
             size_t new_pos = _params.find(',', _last_pos);
-            eosio_assert(new_pos > 0, error_msg);
+            eosio_assert(new_pos >= 0, error_msg);
 
             string result = _params.substr(_last_pos, new_pos - _last_pos);
             _last_pos = new_pos + 1;
