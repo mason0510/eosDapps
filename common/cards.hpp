@@ -88,6 +88,14 @@ namespace godapp {
         }
     }
 
+    struct value_sort {
+        bool operator()(const card_t& x, const card_t& y) const {return card_value(x) < card_value(y);}
+    };
+
+    void sort_by_value(vector<card_t>& cards) {
+        sort(cards.begin(), cards.end(), value_sort());
+    }
+
     string card_suite_str(card_t card){
         switch (card_suit(card)) {
             case CARD_SUIT_SPADE:
