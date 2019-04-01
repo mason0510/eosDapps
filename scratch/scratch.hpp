@@ -47,7 +47,6 @@ namespace godapp {
             uint32_t card2_count;
             uint32_t card3_count;
             uint32_t card4_count;
-
             uint64_t primary_key() const { return player.value; };
         };
         typedef eosio::multi_index<name("cards"), available_card> available_card_index;
@@ -93,5 +92,5 @@ namespace godapp {
         void doClaim(name player);
     };
 
-    EOSIO_ABI_EX(scratch, (init)(setglobal)(transfer)(reveal)(receipt)(claim)(play))
+    EOSIO_ABI_EX(scratch, (claim)(init)(play)(reveal)(receipt)(setglobal)(transfer))
 }
