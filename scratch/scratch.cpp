@@ -178,11 +178,6 @@ namespace godapp {
             a.player = player;
             a.card1_count = 1;
         });
-        //save cards as activecards
-         auto itr = _active_cards.find(player.value);
-        if(itr == _active_cards.end()) {
-            scratch_card(player, 0, asset(1000, EOS_SYMBOL), name("houseaccount"));
-        }
         }
     }
 
