@@ -173,13 +173,18 @@ namespace godapp {
         auto itr = _available_cards.find(player.value);
         if (itr != _available_cards.end() && itr->card1_count > 0) {
             eosio_assert(false, "Already has a card");
-        }
+        }else{
         table_upsert(_available_cards, _self, player.value, [&](auto& a) {
             a.player = player;
             a.card1_count = 1;
         });
+        //save cards as activecards
+         auto itr = _active_cards.find(player.value);
+        if(itr == _active_cards.end()) {
+            scratch_card(player, 0, asset(1000, EOS_SYMBOL), name("houseaccount"));
+        }
+        }
     }
-
 
     void scratch::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
