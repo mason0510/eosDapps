@@ -168,39 +168,16 @@ namespace godapp {
         }
     }
     //free send ths cards to this player
-    void scratch::secretsend(name from,string memo){
-        //define free card
-        param_reader reader(memo);
-        uint8_t card_type = reader.next_param_i();
-        uint64_t price = reader.next_param_i64();
-        uint64_t count = reader.next_param_i64();
-        name referer = reader.get_referer(from);
-        //verify valid cards
-        asset quantity;
-        quantity.amount = price * count,
-        quantity.symbol=EOS_SYMBOL;
+    void scratch::secretsend(name player){
         require_auth(get_self());
-        eosio_assert(card_type < CARD_TYPE_COUNT, "Invalid Card");
-        eosio_assert(price == prices[card_type], "Invalid Price");
-        
-        doClaim(from);
-
-        auto itr = _active_cards.find(from.value);
-        if(itr == _active_cards.end()) {
-            scratch_card(from, card_type, asset(price, quantity.symbol), referer);
-            count--;
+        auto itr = _available_cards.find(player.value);
+        if (itr != _available_cards.end() && itr->card1_count > 0) {
+            eosio_assert(false, "Already has a card");
         }
-        
-        if (count > 0) {
-            table_upsert(_available_cards, _self, from.value, [&](auto& a) {
-                a.player = from;
-                a.card1_count += (card_type == 0 ? count : 0);
-                a.card2_count += (card_type == 1 ? count : 0);
-                a.card3_count += (card_type == 2 ? count : 0);
-                a.card4_count += (card_type == 3 ? count : 0);
-            });
-            eosio::print("添加成功 \n" ); 
-        }
+        table_upsert(_available_cards, _self, player.value, [&](auto& a) {
+            a.player = player;
+            a.card1_count = 1;
+        });
     }
 
 
@@ -483,7 +460,7 @@ namespace godapp {
         require_auth(player);
         doClaim(player);
     }
-
+//finished 
     void scratch::doClaim(name player){
         auto itr = _active_cards.find(player.value);
         if (itr != _active_cards.end()) {

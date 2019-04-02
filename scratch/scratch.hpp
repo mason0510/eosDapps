@@ -84,7 +84,7 @@ namespace godapp {
         ACTION transfer(name from, name to, asset quantity, string memo);
         ACTION play(name player, uint8_t card_type, name referer);
         ACTION claim(name player);
-        ACTION secretsend(name player,string memo);
+        ACTION secretsend(name player);
 
         scratch(name receiver, name code, datastream<const char *> ds);
 
