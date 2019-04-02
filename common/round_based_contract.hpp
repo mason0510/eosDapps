@@ -290,7 +290,7 @@ private: \
         table_upsert(_results, _self, result_index, [&](auto &a) { \
             a.id = result_index; \
             a.game_id = game_id; \
-            a.result = result.result; \
+            a.result = result.roundResult; \
         }); \
         result.set_receipt(*this, game_id, gm_pos->seed); \
     }
