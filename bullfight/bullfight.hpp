@@ -31,7 +31,8 @@ namespace godapp {
         DEFINE_RANDOM_KEY_TABLE
 
         ACTION receipt(uint64_t game_id, capi_checksum256 seed, string banker_cards, string player1_cards,
-            string player2_cards, string player3_cards, string player4_cards);
+            int64_t player1_rate, string player2_cards, int64_t player2_rate, string player3_cards,
+            int64_t player3_rate, string player4_cards, int64_t player4_rate);
         DECLARE_STANDARD_ACTIONS(bullfight)
     };
 
