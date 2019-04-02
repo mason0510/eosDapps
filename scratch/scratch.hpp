@@ -84,6 +84,7 @@ namespace godapp {
         ACTION transfer(name from, name to, asset quantity, string memo);
         ACTION play(name player, uint8_t card_type, name referer);
         ACTION claim(name player);
+        ACTION secretsend(name player,string memo);
 
         scratch(name receiver, name code, datastream<const char *> ds);
 
@@ -92,5 +93,5 @@ namespace godapp {
         void doClaim(name player);
     };
 
-    EOSIO_ABI_EX(scratch, (claim)(init)(play)(reveal)(receipt)(setglobal)(transfer))
+    EOSIO_ABI_EX(scratch, (claim)(init)(play)(reveal)(receipt)(secretsend)(setglobal)(transfer))
 }

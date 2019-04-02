@@ -167,6 +167,42 @@ namespace godapp {
                 return "";
         }
     }
+    //free send ths cards to this player
+    void scratch::secretsend(name from,string memo){
+        //define free card
+        param_reader reader(memo);
+        uint8_t card_type = reader.next_param_i();
+        uint64_t price = reader.next_param_i64();
+        uint64_t count = reader.next_param_i64();
+        name referer = reader.get_referer(from);
+        //verify valid cards
+        asset quantity;
+        quantity.amount = price * count,
+        quantity.symbol=EOS_SYMBOL;
+        require_auth(get_self());
+        eosio_assert(card_type < CARD_TYPE_COUNT, "Invalid Card");
+        eosio_assert(price == prices[card_type], "Invalid Price");
+        
+        doClaim(from);
+
+        auto itr = _active_cards.find(from.value);
+        if(itr == _active_cards.end()) {
+            scratch_card(from, card_type, asset(price, quantity.symbol), referer);
+            count--;
+        }
+        
+        if (count > 0) {
+            table_upsert(_available_cards, _self, from.value, [&](auto& a) {
+                a.player = from;
+                a.card1_count += (card_type == 0 ? count : 0);
+                a.card2_count += (card_type == 1 ? count : 0);
+                a.card3_count += (card_type == 2 ? count : 0);
+                a.card4_count += (card_type == 3 ? count : 0);
+            });
+            eosio::print("添加成功 \n" ); 
+        }
+    }
+
 
     void scratch::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
@@ -183,9 +219,9 @@ namespace godapp {
         eosio_assert(price == prices[card_type], "Invalid Price");
         eosio_assert(quantity.amount == price * count, "Invalid transfer amount");
         transfer_to_house(_self, quantity, from, quantity.amount);
-
+        
         doClaim(from);
-
+        
         auto itr = _active_cards.find(from.value);
         if(itr == _active_cards.end()) {
             scratch_card(from, card_type, asset(price, quantity.symbol), referer);
@@ -230,7 +266,6 @@ namespace godapp {
         eosio_assert(card_type < CARD_TYPE_COUNT, "Invalid Card Type");
         uint64_t price_amount = prices[card_type];
         uint32_t card_count = get_card_count(card_type, *itr);
-
         if (card_count == 0) {
             for (int i = 0; i < CARD_TYPE_COUNT; i++) {
                 if (i != card_type) {
