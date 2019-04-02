@@ -5,10 +5,11 @@
 #include "random.hpp"
 #include <string>
 
-#define CARD_SUIT_SPADE 0
-#define CARD_SUIT_HEART 1
-#define CARD_SUIT_DIAMOND 2
-#define CARD_SUIT_CLUB 3
+
+#define CARD_SUIT_DIAMOND 0
+#define CARD_SUIT_CLUB 1
+#define CARD_SUIT_HEART 2
+#define CARD_SUIT_SPADE 3
 
 #define NUM_SUITS 4
 #define CARDS_PER_SUIT 13
@@ -89,7 +90,7 @@ namespace godapp {
     }
 
     struct value_sort {
-        bool operator()(const card_t& x, const card_t& y) const {return card_value(x) < card_value(y);}
+        bool operator()(const card_t& x, const card_t& y) const {return card_value_with_ace(x) < card_value_with_ace(y);}
     };
 
     void sort_by_value(vector<card_t>& cards) {

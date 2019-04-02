@@ -44,15 +44,16 @@ namespace godapp {
         std::vector<uint8_t> banker_card_values;
 
         uint8_t banker_type, player1_type, player2_type, player3_type, player4_type;
-        uint64_t player1_rate, player2_rate, player3_rate, player4_rate;
+        int64_t player1_rate, player2_rate, player3_rate, player4_rate;
         uint64_t result = 0;
+        uint8_t roundResult = 0;
 
         bullfight_result(random &random_gen) {
             draw_cards(random_gen);
         }
 
         asset get_payout(const bullfight::bet &bet_item) {
-            return get_pay_rate(bet_item.bet_type) * bet_item.bet / 10;
+            return (5 + get_pay_rate(bet_item.bet_type)) * bet_item.bet / 5;
         }
 
         uint64_t get_pay_rate(uint8_t bet_type) {
@@ -76,7 +77,7 @@ namespace godapp {
                 deck[i] = i;
             }
             draw_hand(random_gen, deck, banker_cards, 0, banker_type);
-            get_hand_type(banker_cards, banker_card_values);
+            banker_type = get_hand_type(banker_cards, banker_card_values);
 
             result = banker_type;
             handle_player(random_gen, deck, player1_cards, 5, player1_type, player1_rate);
@@ -86,38 +87,58 @@ namespace godapp {
         }
 
         void handle_player(random& random_gen, card_t cards[], std::vector<card_t>& drawn,
-            uint8_t already_drawn, uint8_t& hand_type, uint64_t& pay_rate) {
+            uint8_t already_drawn, uint8_t& hand_type, int64_t& pay_rate) {
             draw_hand(random_gen, cards, drawn, already_drawn, hand_type);
 
             std::vector<uint8_t> card_values;
             hand_type = get_hand_type(drawn, card_values);
             if (hand_type > banker_type) {
-                pay_rate = 10 + get_hand_pay_rate(hand_type);
+                pay_rate = get_hand_pay_rate(hand_type);
             } else if (banker_type != NO_BULL) {
-                pay_rate = 10 - get_hand_pay_rate(hand_type);
+                pay_rate = -get_hand_pay_rate(banker_type);
             } else {
-                pay_rate = compare_hand_value(card_values, banker_card_values);
+                pay_rate = compare_hand_value(drawn, banker_cards);
             }
-            result <<= 1;
-            result |= pay_rate > 10 ? 1 : 0;
-            result <<= 2;
+            roundResult <<= 1;
+            roundResult |= pay_rate > 0 ? 1 : 0;
+            result <<= 4;
             result |= hand_type;
         }
 
-        static uint64_t compare_hand_value(std::vector<uint8_t>& player_hand, std::vector<uint8_t>& banker_hand) {
-            for (int i=4; i>=0; i--) {
-                if (player_hand[i] > banker_hand[i]) {
-                    return 11;
-                } else if (banker_hand[i] > player_hand[i]) {
-                    return 9;
+        static uint64_t compare_hand_value(std::vector<card_t>& player_hand, std::vector<card_t>& banker_hand) {
+            uint8_t banker_value = card_value(banker_hand[4]);
+            uint8_t player_value = card_value(player_hand[4]);
+            if (player_value > banker_value) {
+                return 1;
+            } else if (player_value < banker_value) {
+                return -1;
+            } else {
+                uint8_t banker_suit = card_suit(banker_hand[4]);
+                uint8_t player_suit = card_suit(player_hand[4]);
+                if (player_suit > banker_suit) {
+                    return 1;
+                } else {
+                    return -1;
                 }
             }
-            return 0;
         }
 
 
         static uint8_t get_hand_pay_rate(uint8_t hand_type) {
-            return max(min(hand_type, (uint8_t) 1), (uint8_t) 10);
+            switch (hand_type) {
+                case BULL_8:
+                case BULL_9:
+                    return 2;
+                case BULL_10:
+                    return 3;
+                case FOUR_OF_A_KIND:
+                case ALL_HEADS:
+                    return 4;
+                case SMALL_BULL:
+                    return 5;
+                default:
+                    return 1;
+            }
         }
 
         static void draw_hand(random& random_gen, card_t cards[], std::vector<card_t>& drawn, uint8_t already_drawn,
@@ -224,13 +245,15 @@ namespace godapp {
 
         void set_receipt(bullfight &contract, uint64_t game_id, capi_checksum256 seed) {
             SEND_INLINE_ACTION(contract, receipt, { contract.get_self(), name("active") }, { game_id, seed,
-                cards_to_string(banker_cards), cards_to_string(player1_cards), cards_to_string(player2_cards),
-                cards_to_string(player3_cards), cards_to_string(player4_cards)});
+                cards_to_string(banker_cards), cards_to_string(player1_cards), player1_rate,
+                cards_to_string(player2_cards), player2_rate,  cards_to_string(player3_cards),
+                player3_rate, cards_to_string(player4_cards), player4_rate});
         }
     };
 
     void bullfight::receipt(uint64_t game_id, capi_checksum256 seed, string banker_cards, string player1_cards,
-                            string player2_cards, string player3_cards, string player4_cards) {
+                            int64_t player1_rate, string player2_cards, int64_t player2_rate, string player3_cards,
+                            int64_t player3_rate, string player4_cards, int64_t player4_rate) {
         require_auth(_self);
         require_recipient(_self);
     }
