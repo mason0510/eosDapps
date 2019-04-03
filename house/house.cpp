@@ -178,10 +178,11 @@ namespace godapp {
         if (payout.symbol == EOS_SYMBOL) {
             if (payout.amount > 0) {
                 auto player_iter = game_player.find(to.value);
-                eosio_assert(player_iter != game_player.end(), "Player does not exist");
-                game_player.modify(player_iter, _self, [&](auto &a) {
-                    a.out += payout.amount;
-                });
+                if (player_iter != game_player.end()) {
+                    game_player.modify(player_iter, _self, [&](auto &a) {
+                        a.out += payout.amount;
+                    });
+                }
             }
 
             if (referer.value != 0 && referer.value != _self.value) {
