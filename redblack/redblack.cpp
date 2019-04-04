@@ -226,5 +226,5 @@ namespace godapp {
         require_recipient(_self);
     }
 
-    DEFINE_REVEAL_FUNCTION(redblack, Red Vs Blue, redblack_result)
+    DEFINE_REVEAL_FUNCTION(redblack, Red Vs Blue, redblack_result, 1)
 };
