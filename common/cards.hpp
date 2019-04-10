@@ -90,7 +90,7 @@ namespace godapp {
     }
 
     struct value_sort {
-        bool operator()(const card_t& x, const card_t& y) const {return card_value_with_ace(x) < card_value_with_ace(y);}
+        bool operator()(const card_t& x, const card_t& y) const {return card_value(x) < card_value(y);}
     };
 
     void sort_by_value(vector<card_t>& cards) {

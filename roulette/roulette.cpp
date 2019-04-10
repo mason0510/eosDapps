@@ -39,10 +39,12 @@ namespace godapp {
     class roulette_result {
     public:
         uint8_t result;
+        uint8_t roundResult;
         bool is_red;
 
         roulette_result(random& random_gen) {
             result = random_gen.generator(BET_NUMBER_END);
+            roundResult = result;
             is_red = IS_RED[result];
         }
 
@@ -127,5 +129,5 @@ namespace godapp {
         require_recipient(_self);
     }
 
-    DEFINE_REVEAL_FUNCTION(roulette, Roulette, roulette_result)
+    DEFINE_REVEAL_FUNCTION(roulette, Roulette, roulette_result, 1)
 };
