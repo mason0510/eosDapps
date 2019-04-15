@@ -110,7 +110,6 @@ private: \
     void NAME::init() { \
         require_auth(HOUSE_ACCOUNT); \
         initsymbol(EOS_SYMBOL); \
-        newround(EOS_SYMBOL); \
     }
 
 #define DEFINE_INIT_SYMBOL_FUNCTION(NAME) \

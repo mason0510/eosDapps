@@ -17,7 +17,7 @@ namespace godapp {
     CONTRACT quick3: public contract {
     public:
         DEFINE_GLOBAL_TABLE
-        DEFINE_GAMES_TABLE(uint16_t result;)
+        DEFINE_GAMES_TABLE(std::vector<uint8_t> result;)
         DEFINE_BETS_TABLE
         DEFINE_RESULTS_TABLE
         DEFINE_HISTORY_TABLE

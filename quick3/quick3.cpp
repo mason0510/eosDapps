@@ -35,8 +35,8 @@ namespace godapp {
 
     class quick3_result {
     public:
-        uint64_t result;
-        uint64_t roundResult;
+        uint64_t result = 0;
+        uint64_t roundResult = 0;
         uint8_t sum = 0;
         std::vector<uint8_t> dices;
 
@@ -50,19 +50,19 @@ namespace godapp {
         };
 
         quick3_result(random& random_gen) {
-            uint64_t rng = random_gen.generator(216);
+            uint8_t rng = random_gen.generator(216);
             std::vector<uint8_t> results;
 
+            result = rng;
+            roundResult = rng;
+
             for (int i=0; i<3; i++) {
-                uint8_t dice = rng % 6;
+                uint8_t dice = rng % 6 + 1;
                 results.push_back(dice);
-                result <<= 8;
-                result |= dice;
 
                 sum += dice;
                 rng /= 6;
             }
-            roundResult = result;
             dices = results;
 
             sort(results.begin(), results.end());
@@ -118,7 +118,7 @@ namespace godapp {
         }
 
         void update_game(quick3::game& game) {
-            game.result = result;
+            game.result = dices;
         }
 
         void set_receipt(quick3& contract, uint64_t game_id, capi_checksum256 seed) {
