@@ -53,6 +53,18 @@ namespace godapp {
         r_out.send(_self.value, _self);
     }
 
+    void house::updategame(name game, uint64_t id) {
+        require_auth(_self);
+
+        game_index games(_self, _self.value);
+        auto iter = games.find(game.value);
+        if (iter != games.end()) {
+            games.modify(iter, _self, [&](auto& a) {
+                a.id = id;
+            });
+        }
+    }
+
     /**
      * Set the active state of a game, only active games can be played
      * @param game Name of the game to modify
@@ -101,7 +113,7 @@ namespace godapp {
             });
 
             // update the player table for book-keeping
-            player_index game_player(_self, from.value);
+            player_record_index game_player(_self, _self.value);
             name player = name(memo);
             eosio_assert(is_account(player), "invalid player account");
             // we only keep track of EOS cash flow
@@ -110,24 +122,27 @@ namespace godapp {
             auto player_iter = game_player.find(player.value);
             if (player_iter == game_player.end()) {
                 game_player.emplace(_self, [&](auto &a) {
-                    a.name = player;
+                    a.player = player;
                     a.in = amount;
+                    a.daily_in = amount;
                     a.out = 0;
                     a.play_times = 1;
+
                     a.last_play_time = now();
-                    a.event_in = amount;
+                    a.game_played_flag |= 1 << game_itr->id;
                 });
             } else {
                 uint32_t timestamp = now();
                 // reset event play amount if it has past event (day) boundary
-                uint64_t event_in = ((timestamp / EVENT_LENGTH) > (player_iter->last_play_time / EVENT_LENGTH)) ?
-                                    0 : player_iter->event_in;
-                event_in += amount;
+                uint64_t daily_in = ((timestamp / EVENT_LENGTH) > (player_iter->last_play_time / EVENT_LENGTH)) ?
+                                    0 : player_iter->daily_in;
+                daily_in += amount;
                 game_player.modify(player_iter, _self, [&](auto &a) {
                     a.in += amount;
                     a.play_times += 1;
                     a.last_play_time = timestamp;
-                    a.event_in = event_in;
+                    a.daily_in = daily_in;
+                    a.game_played_flag |= 1 << game_itr->id;
                 });
             }
         } else {
@@ -168,7 +183,7 @@ namespace godapp {
         game_index games(_self, _self.value);
         games.get(game.value, "Game does not exist");
 
-        player_index game_player(_self, game.value);
+        player_record_index game_player(_self, _self.value);
         token_index game_token(_self, game.value);
 
         auto token_iter = game_token.find(payout.symbol.raw());
@@ -176,21 +191,29 @@ namespace godapp {
 
         int64_t pay_amount = payout.amount;
         if (payout.symbol == EOS_SYMBOL) {
-            if (payout.amount > 0) {
-                auto player_iter = game_player.find(to.value);
-                if (player_iter != game_player.end()) {
-                    game_player.modify(player_iter, _self, [&](auto &a) {
-                        a.out += payout.amount;
-                    });
-                }
+            if (referer.value == _self.value) {
+                referer = name(0);
             }
-
-            if (referer.value != 0 && referer.value != _self.value) {
-                asset refer_bonus = bet * REFERRAL_BOUUS / 1000;
-                pay_amount += refer_bonus.amount;
-                if (refer_bonus.amount > 0) {
-                    INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
+            auto player_iter = game_player.find(to.value);
+            if (player_iter != game_player.end()) {
+                if (player_iter->referer.value != 0) {
+                    referer = player_iter->referer;
                 }
+
+                asset refer_bonus(0, EOS_SYMBOL);
+                if (referer.value != 0) {
+                    refer_bonus = bet * REFERRAL_BOUUS / 1000;
+                    pay_amount += refer_bonus.amount;
+                    if (refer_bonus.amount > 0) {
+                        INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
+                    }
+                }
+
+                game_player.modify(player_iter, _self, [&](auto &a) {
+                    a.out += payout.amount;
+                    a.referer = referer;
+                    a.referer_payout += refer_bonus.amount;
+                });
             }
         }
 
@@ -230,4 +253,52 @@ namespace godapp {
         }
     }
 
-};
+
+#define SET_REFERER             0
+#define PLAY_ANY_GAME           1
+#define PLAY_ALL_GAMES          2
+#define TOTAL_PLAYED_START      30
+
+
+    void house::claimreward(name player, uint8_t reward_type) {
+        require_auth(player);
+
+        uint64_t reward_mask = 1 << reward_type;
+
+        player_record_index game_player(_self, _self.value);
+        auto player_record = game_player.find(player.value);
+        if (player_record != game_player.end()) {
+            eosio_assert((player_record->bonus_claimed & reward_type) == 0, "reward already claimed");
+        }
+
+        uint64_t points = 0;
+        switch (reward_type) {
+            case SET_REFERER:
+                if (player_record->referer.value != 0) {
+                    points = 50;
+                }
+                break;
+            case PLAY_ANY_GAME:
+                if (player_record->game_played_flag != 0) {
+                    points = 50;
+                }
+                break;
+            case PLAY_ALL_GAMES:
+                if ((player_record->game_played_flag & 1022) == 1022) {
+                    points = 50;
+                }
+                break;
+            default:
+                if (reward_type > TOTAL_PLAYED_START) {
+                    points = 100;
+                }
+        }
+
+        game_player.modify(player_record, _self, [&](auto &a) {
+            a.bonus_point += points;
+            a.bonus_claimed |= reward_mask;
+        });
+    }
+
+
+}
