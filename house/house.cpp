@@ -4,6 +4,7 @@
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/eosio.token.hpp"
+#include "../common/random.hpp"
 
 
 #define EVENT_LENGTH                86400
@@ -253,52 +254,112 @@ namespace godapp {
         }
     }
 
+    void house::setreferer(name player, name referer) {
+        require_auth(player);
+
+        player_record_index game_player(_self, _self.value);
+        auto itr = game_player.find(player.value);
+        eosio_assert(itr != game_player.end(), "Player does not exist");
+        eosio_assert(referer.value == player.value || referer.value == _self.value
+            || referer.value == itr->referer.value, "Invalid referer name");
+
+        game_player.modify(itr, _self, [&](auto &a) {
+            a.referer = referer;
+            a.referer_payout = 0;
+        });
+    }
+
 
 #define SET_REFERER             0
 #define PLAY_ANY_GAME           1
 #define PLAY_ALL_GAMES          2
 #define TOTAL_PLAYED_START      30
+#define TOTAL_PLAYED_END        37
 
+#define CHEST_OPEN_START        50
+#define CHEST_OPEN_END          54
+
+    struct played_reward {
+        uint64_t amount;
+        uint64_t points;
+    };
+
+    played_reward rewards[] = {
+        {10, 10}, {100, 100}, {500, 300}, {1000, 500}, {2000, 1000}, {5000, 3000},
+        {10000, 5000}, {100000, 10000}
+    };
 
     void house::claimreward(name player, uint8_t reward_type) {
         require_auth(player);
-
         uint64_t reward_mask = 1 << reward_type;
 
         player_record_index game_player(_self, _self.value);
-        auto player_record = game_player.find(player.value);
-        if (player_record != game_player.end()) {
-            eosio_assert((player_record->bonus_claimed & reward_type) == 0, "reward already claimed");
-        }
+        auto itr = game_player.find(player.value);
+        eosio_assert(itr != game_player.end(), "Player does not exist");
+        eosio_assert((itr->bonus_claimed & reward_type) == 0, "reward already claimed");
 
         uint64_t points = 0;
         switch (reward_type) {
             case SET_REFERER:
-                if (player_record->referer.value != 0) {
+                if (itr->referer.value != 0) {
                     points = 50;
                 }
                 break;
             case PLAY_ANY_GAME:
-                if (player_record->game_played_flag != 0) {
-                    points = 50;
+                if (itr->game_played_flag != 0) {
+                    points = 20;
                 }
                 break;
             case PLAY_ALL_GAMES:
-                if ((player_record->game_played_flag & 1022) == 1022) {
-                    points = 50;
+                if ((itr->game_played_flag & 1022) == 1022) {
+                    points = 20;
                 }
                 break;
             default:
-                if (reward_type > TOTAL_PLAYED_START) {
-                    points = 100;
+                if (reward_type >= TOTAL_PLAYED_START && reward_type <= TOTAL_PLAYED_END) {
+                    const played_reward& reward = rewards[reward_type - TOTAL_PLAYED_START];
+                    if (itr->in >= reward.amount * 10000) {
+                        points = reward.points;
+                    }
                 }
         }
 
-        game_player.modify(player_record, _self, [&](auto &a) {
+        game_player.modify(itr, _self, [&](auto &a) {
             a.bonus_point += points;
             a.bonus_claimed |= reward_mask;
         });
     }
 
+    uint64_t chest_amount[] = {
+        500, 5000, 10000, 20000, 100000
+    };
 
+    void house::openchest(name player, uint8_t chest_type) {
+        require_auth(player);
+
+        uint8_t reward_type = CHEST_OPEN_START + chest_type;
+        uint64_t reward_mask = 1 << reward_type;
+        eosio_assert(reward_type <= CHEST_OPEN_END, "Invalid Chest type");
+        asset reward(chest_amount[reward_type], EOS_SYMBOL);
+
+        player_record_index game_player(_self, _self.value);
+        auto itr = game_player.find(player.value);
+        eosio_assert(itr != game_player.end(), "Player does not exist");
+        eosio_assert((itr->bonus_claimed & reward_mask) == 0, "Reward already claimed");
+
+        capi_checksum256 seed_hash;
+        sha256((const char*)(player.value + tapos_block_num()), sizeof(uint64_t), &seed_hash);
+        random rng(seed_hash);
+
+        uint64_t roll = rng.generator(101);
+        reward += reward * roll / 100;
+
+        game_player.modify(itr, _self, [&](auto &a) {
+            a.out += reward.amount;
+            a.bonus_claimed |= reward_mask;
+        });
+
+        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT,
+            {_self, name("active")}, {_self, player, reward, "Dapp365 Chest Reward"} );
+    }
 }

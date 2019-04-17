@@ -73,10 +73,15 @@ namespace godapp {
         ACTION pay(name game, name to, asset bet, asset payout, string memo, name referer);
         ACTION updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance);
         ACTION cleartoken(name game);
+
+
+        ACTION setreferer(name player, name referer);
         ACTION claimreward(name player, uint8_t reward_type);
+        ACTION openchest(name player, uint8_t chest_type);
     };
 
 #ifdef DEFINE_DISPATCHER
-    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(pay)(setactive)(setrandkey)(cleartoken)(claimreward))
+    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(pay)(setactive)(setrandkey)(cleartoken)
+    (claimreward)(setreferer)(openchest))
 #endif
 }
