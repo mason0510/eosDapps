@@ -259,14 +259,20 @@ namespace godapp {
 
         player_record_index game_player(_self, _self.value);
         auto itr = game_player.find(player.value);
-        eosio_assert(itr != game_player.end(), "Player does not exist");
-        eosio_assert(referer.value == player.value || referer.value == _self.value
-            || referer.value == itr->referer.value, "Invalid referer name");
-
-        game_player.modify(itr, _self, [&](auto &a) {
-            a.referer = referer;
-            a.referer_payout = 0;
-        });
+        eosio_assert(referer.value != player.value && referer.value != _self.value, "Invalid Player Name");
+        if (itr != game_player.end()) {
+            if (referer.value != itr->referer.value) {
+                game_player.modify(itr, _self, [&](auto &a) {
+                    a.referer = referer;
+                    a.referer_payout = 0;
+                });
+            }
+        } else {
+            game_player.emplace(_self, [&](auto &a) {
+                a.player = player;
+                a.referer = referer;
+            });
+        }
     }
 
 
