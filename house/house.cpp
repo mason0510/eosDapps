@@ -336,8 +336,13 @@ namespace godapp {
         });
     }
 
-    uint64_t chest_amount[] = {
-        500, 5000, 10000, 20000, 100000
+    struct chest_reward {
+        uint64_t amount;
+        uint64_t limit;
+    };
+
+    chest_reward chest_amount[] = {
+        {500, 100}, {5000, 500}, {10000, 1000}, {20000, 5000}, {100000, 20000}
     };
 
     void house::openchest(name player, uint8_t chest_type) {
@@ -346,11 +351,13 @@ namespace godapp {
         uint8_t reward_type = CHEST_OPEN_START + chest_type;
         uint64_t reward_mask = 1 << reward_type;
         eosio_assert(reward_type <= CHEST_OPEN_END, "Invalid Chest type");
-        asset reward(chest_amount[reward_type], EOS_SYMBOL);
+        chest_reward reward_value = chest_amount[chest_type];
+        asset reward(reward_value.amount, EOS_SYMBOL);
 
         player_record_index game_player(_self, _self.value);
         auto itr = game_player.find(player.value);
         eosio_assert(itr != game_player.end(), "Player does not exist");
+        eosio_assert(itr->bonus_point >= reward_value.limit, "Not enough bonus point");
         eosio_assert((itr->bonus_claimed & reward_mask) == 0, "Reward already claimed");
 
         capi_checksum256 seed_hash;
