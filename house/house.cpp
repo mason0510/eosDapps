@@ -302,7 +302,7 @@ namespace godapp {
         player_record_index game_player(_self, _self.value);
         auto itr = game_player.find(player.value);
         eosio_assert(itr != game_player.end(), "Player does not exist");
-        eosio_assert((itr->bonus_claimed & reward_type) == 0, "reward already claimed");
+        eosio_assert((itr->bonus_claimed & reward_mask) == 0, "reward already claimed");
 
         uint64_t points = 0;
         switch (reward_type) {
