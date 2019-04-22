@@ -42,9 +42,13 @@ namespace godapp {
 
     DEFINE_SET_GLOBAL(dice)
 
+
     asset reward_amount(asset bet_asset, uint8_t bet_number) {
         return bet_asset * (100 - HOUSE_EDGE) / bet_number;
     }
+
+
+
 
     void dice::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
@@ -73,6 +77,7 @@ namespace godapp {
             a.time = time;
         });
     }
+
 
     void dice::reveal(uint64_t bet_id, capi_signature sig){
         auto activebets_itr = _active_bets.find( bet_id );
@@ -113,6 +118,7 @@ namespace godapp {
                 bet_number, roll_value, activebets_itr->referer), 0);
         _active_bets.erase(activebets_itr);
     }
+
 
     void dice::pay(uint64_t bet_id, name player, asset bet, asset payout,
             capi_checksum256 seed, uint8_t bet_value, uint64_t roll_value, name referer) {
