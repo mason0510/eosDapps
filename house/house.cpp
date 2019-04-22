@@ -369,6 +369,7 @@ namespace godapp {
 
         game_player.modify(itr, _self, [&](auto &a) {
             a.out += reward.amount;
+            a.bonus_payout += reward.amount;
             a.bonus_claimed |= reward_mask;
         });
 

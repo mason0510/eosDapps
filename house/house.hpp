@@ -75,6 +75,7 @@ namespace godapp {
             uint64_t game_played_flag;
             uint64_t bonus_claimed;
             uint64_t bonus_point;
+            uint64_t bonus_payout;
 
             uint64_t daily_in;
             uint64_t daily_flag;
@@ -83,7 +84,7 @@ namespace godapp {
             uint64_t primary_key() const {return player.value;};
             uint64_t byreferer() const {return referer.value;}
         };
-        typedef multi_index<name("playerrecord"), player_record,
+        typedef multi_index<name("playerinfo"), player_record,
             indexed_by< name("byreferer"), const_mem_fun<player_record, uint64_t, &player_record::byreferer> >
         > player_record_index;
 
