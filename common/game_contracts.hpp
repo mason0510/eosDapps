@@ -12,6 +12,16 @@ namespace godapp {
     using namespace std;
     using namespace eosio;
 
+#define DEFINE_BET_AMOUNT_TABLE \
+        TABLE bet_amount { \
+            name player; \
+            asset bet; \
+            uint64_t primary_key() const { return player.value; } \
+        }; \
+        typedef multi_index<name("betamount"), bet_amount> bet_amount_table; \
+        bet_amount_table _bet_amount;
+
+
     void transfer_to_house(name self, asset quantity, name player, uint64_t max_payout) {
         // check that the token is supported and amount is within limit, update record accordingly
         house::token_index game_token(HOUSE_ACCOUNT, self.value);

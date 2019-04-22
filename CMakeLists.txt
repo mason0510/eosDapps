@@ -12,9 +12,9 @@ set(COMMON_FILES common/random.hpp common/constants.hpp common/eosio.token.hpp c
         common/tables.hpp common/contracts.hpp common/cards.hpp common/param_reader.hpp common/round_based_contract.hpp
         common/game_contracts.hpp baccarat/baccarat_common.hpp baccarat/baccarat_common.hpp)
 set(HPP_FILES dice/dice.hpp blackjack/blackjack.hpp baccarat/baccarat.hpp redblack/redblack.hpp house/house.hpp roulette/roulette.hpp
-        cbaccarat/cbaccarat.hpp scratch/scratch.hpp slots/slots.hpp bullfight/bullfight.hpp quick3/quick3.hpp)
+        cbaccarat/cbaccarat.hpp scratch/scratch.hpp slots/slots.hpp bullfight/bullfight.hpp quick3/quick3.hpp event/event.hpp)
 set(CPP_FILES dice/dice.cpp blackjack/blackjack.cpp baccarat/baccarat.cpp redblack/redblack.cpp house/house.cpp roulette/roulette.cpp
-        cbaccarat/cbaccarat.cpp scratch/scratch.cpp slots/slots.cpp bullfight/bullfight.cpp quick3/quick3.cpp)
+        cbaccarat/cbaccarat.cpp scratch/scratch.cpp slots/slots.cpp bullfight/bullfight.cpp quick3/quick3.cpp event/event.cpp)
 
 add_library(link SHARED
         ${COMMON_FILES}

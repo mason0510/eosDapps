@@ -48,15 +48,6 @@
         > bet_table; \
         bet_table _bets;
 
-#define DEFINE_BET_AMOUNT_TABLE \
-        TABLE bet_amount { \
-            name player; \
-            asset bet; \
-            uint64_t primary_key() const { return player.value; } \
-        }; \
-        typedef multi_index<name("betamount"), bet_amount> bet_amount_table; \
-        bet_amount_table _bet_amount;
-
 #define DEFINE_HISTORY_TABLE \
         TABLE history { \
             uint64_t id; \
