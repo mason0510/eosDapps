@@ -279,11 +279,10 @@ namespace godapp {
 #define SET_REFERER             0
 #define PLAY_ANY_GAME           1
 #define PLAY_ALL_GAMES          2
-#define TOTAL_PLAYED_START      30
-#define TOTAL_PLAYED_END        37
+#define TOTAL_PLAYED_START      20
+#define TOTAL_PLAYED_END        27
 
-#define CHEST_OPEN_START        50
-#define CHEST_OPEN_END          54
+#define CHEST_OPEN_END          4
 
     struct played_reward {
         uint64_t amount;
@@ -297,12 +296,12 @@ namespace godapp {
 
     void house::claimreward(name player, uint8_t reward_type) {
         require_auth(player);
-        uint64_t reward_mask = 1 << reward_type;
+        uint64_t reward_mask = ((uint32_t) 1) << reward_type;
 
         player_record_index game_player(_self, _self.value);
         auto itr = game_player.find(player.value);
         eosio_assert(itr != game_player.end(), "Player does not exist");
-        eosio_assert((itr->bonus_claimed & reward_type) == 0, "reward already claimed");
+        eosio_assert((itr->bonus_claimed & reward_mask) == 0, "reward already claimed");
 
         uint64_t points = 0;
         switch (reward_type) {
@@ -348,9 +347,8 @@ namespace godapp {
     void house::openchest(name player, uint8_t chest_type) {
         require_auth(player);
 
-        uint8_t reward_type = CHEST_OPEN_START + chest_type;
-        uint64_t reward_mask = 1 << reward_type;
-        eosio_assert(reward_type <= CHEST_OPEN_END, "Invalid Chest type");
+        uint64_t reward_mask = ((uint32_t) 1) << chest_type;
+        eosio_assert(chest_type <= CHEST_OPEN_END, "Invalid Chest type");
         chest_reward reward_value = chest_amount[chest_type];
         asset reward(reward_value.amount, EOS_SYMBOL);
 
@@ -369,6 +367,7 @@ namespace godapp {
 
         game_player.modify(itr, _self, [&](auto &a) {
             a.out += reward.amount;
+            a.bonus_payout += reward.amount;
             a.bonus_claimed |= reward_mask;
         });
 
