@@ -13,7 +13,7 @@
 #define G_ID_END                    104
 
 #define GAME_LENGTH                 45
-#define GAME_RESOLVE_TIME           15
+#define GAME_RESOLVE_TIME           25
 
 #define RESULT_SIZE                 100
 #define HISTORY_SIZE                100
@@ -258,5 +258,5 @@ namespace godapp {
         require_recipient(_self);
     }
 
-    DEFINE_REVEAL_FUNCTION(bullfight, Bull Fight, bullfight_result)
+    DEFINE_REVEAL_FUNCTION(bullfight, Bull Fight, bullfight_result, 5)
 };

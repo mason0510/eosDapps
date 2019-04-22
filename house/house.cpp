@@ -4,6 +4,7 @@
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/eosio.token.hpp"
+#include "../common/random.hpp"
 
 
 #define EVENT_LENGTH                86400
@@ -51,6 +52,18 @@ namespace godapp {
         r_out.actions.emplace_back(eosio::permission_level{_self, name("active")}, game, name("init"), t_data);
         r_out.delay_sec = 0;
         r_out.send(_self.value, _self);
+    }
+
+    void house::updategame(name game, uint64_t id) {
+        require_auth(_self);
+
+        game_index games(_self, _self.value);
+        auto iter = games.find(game.value);
+        if (iter != games.end()) {
+            games.modify(iter, _self, [&](auto& a) {
+                a.id = id;
+            });
+        }
     }
 
     /**
@@ -101,7 +114,7 @@ namespace godapp {
             });
 
             // update the player table for book-keeping
-            player_index game_player(_self, from.value);
+            player_record_index game_player(_self, _self.value);
             name player = name(memo);
             eosio_assert(is_account(player), "invalid player account");
             // we only keep track of EOS cash flow
@@ -110,24 +123,27 @@ namespace godapp {
             auto player_iter = game_player.find(player.value);
             if (player_iter == game_player.end()) {
                 game_player.emplace(_self, [&](auto &a) {
-                    a.name = player;
+                    a.player = player;
                     a.in = amount;
+                    a.daily_in = amount;
                     a.out = 0;
                     a.play_times = 1;
+
                     a.last_play_time = now();
-                    a.event_in = amount;
+                    a.game_played_flag |= 1 << game_itr->id;
                 });
             } else {
                 uint32_t timestamp = now();
                 // reset event play amount if it has past event (day) boundary
-                uint64_t event_in = ((timestamp / EVENT_LENGTH) > (player_iter->last_play_time / EVENT_LENGTH)) ?
-                                    0 : player_iter->event_in;
-                event_in += amount;
+                uint64_t daily_in = ((timestamp / EVENT_LENGTH) > (player_iter->last_play_time / EVENT_LENGTH)) ?
+                                    0 : player_iter->daily_in;
+                daily_in += amount;
                 game_player.modify(player_iter, _self, [&](auto &a) {
                     a.in += amount;
                     a.play_times += 1;
                     a.last_play_time = timestamp;
-                    a.event_in = event_in;
+                    a.daily_in = daily_in;
+                    a.game_played_flag |= 1 << game_itr->id;
                 });
             }
         } else {
@@ -168,7 +184,7 @@ namespace godapp {
         game_index games(_self, _self.value);
         games.get(game.value, "Game does not exist");
 
-        player_index game_player(_self, game.value);
+        player_record_index game_player(_self, _self.value);
         token_index game_token(_self, game.value);
 
         auto token_iter = game_token.find(payout.symbol.raw());
@@ -176,21 +192,29 @@ namespace godapp {
 
         int64_t pay_amount = payout.amount;
         if (payout.symbol == EOS_SYMBOL) {
-            if (payout.amount > 0) {
-                auto player_iter = game_player.find(to.value);
-                if (player_iter != game_player.end()) {
-                    game_player.modify(player_iter, _self, [&](auto &a) {
-                        a.out += payout.amount;
-                    });
-                }
+            if (referer.value == _self.value) {
+                referer = name(0);
             }
-
-            if (referer.value != 0 && referer.value != _self.value) {
-                asset refer_bonus = bet * REFERRAL_BOUUS / 1000;
-                pay_amount += refer_bonus.amount;
-                if (refer_bonus.amount > 0) {
-                    INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
+            auto player_iter = game_player.find(to.value);
+            if (player_iter != game_player.end()) {
+                if (player_iter->referer.value != 0) {
+                    referer = player_iter->referer;
                 }
+
+                asset refer_bonus(0, EOS_SYMBOL);
+                if (referer.value != 0) {
+                    refer_bonus = bet * REFERRAL_BOUUS / 1000;
+                    pay_amount += refer_bonus.amount;
+                    if (refer_bonus.amount > 0) {
+                        INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
+                    }
+                }
+
+                game_player.modify(player_iter, _self, [&](auto &a) {
+                    a.out += payout.amount;
+                    a.referer = referer;
+                    a.referer_payout += refer_bonus.amount;
+                });
             }
         }
 
@@ -230,4 +254,125 @@ namespace godapp {
         }
     }
 
-};
+    void house::setreferer(name player, name referer) {
+        require_auth(player);
+
+        player_record_index game_player(_self, _self.value);
+        auto itr = game_player.find(player.value);
+        eosio_assert(referer.value != player.value && referer.value != _self.value, "Invalid Player Name");
+        if (itr != game_player.end()) {
+            if (referer.value != itr->referer.value) {
+                game_player.modify(itr, _self, [&](auto &a) {
+                    a.referer = referer;
+                    a.referer_payout = 0;
+                });
+            }
+        } else {
+            game_player.emplace(_self, [&](auto &a) {
+                a.player = player;
+                a.referer = referer;
+            });
+        }
+    }
+
+
+#define SET_REFERER             0
+#define PLAY_ANY_GAME           1
+#define PLAY_ALL_GAMES          2
+#define TOTAL_PLAYED_START      30
+#define TOTAL_PLAYED_END        37
+
+#define CHEST_OPEN_START        50
+#define CHEST_OPEN_END          54
+
+    struct played_reward {
+        uint64_t amount;
+        uint64_t points;
+    };
+
+    played_reward rewards[] = {
+        {10, 10}, {100, 100}, {500, 300}, {1000, 500}, {2000, 1000}, {5000, 3000},
+        {10000, 5000}, {100000, 10000}
+    };
+
+    void house::claimreward(name player, uint8_t reward_type) {
+        require_auth(player);
+        uint64_t reward_mask = 1 << reward_type;
+
+        player_record_index game_player(_self, _self.value);
+        auto itr = game_player.find(player.value);
+        eosio_assert(itr != game_player.end(), "Player does not exist");
+        eosio_assert((itr->bonus_claimed & reward_type) == 0, "reward already claimed");
+
+        uint64_t points = 0;
+        switch (reward_type) {
+            case SET_REFERER:
+                if (itr->referer.value != 0) {
+                    points = 50;
+                }
+                break;
+            case PLAY_ANY_GAME:
+                if (itr->game_played_flag != 0) {
+                    points = 20;
+                }
+                break;
+            case PLAY_ALL_GAMES:
+                if ((itr->game_played_flag & 1022) == 1022) {
+                    points = 20;
+                }
+                break;
+            default:
+                if (reward_type >= TOTAL_PLAYED_START && reward_type <= TOTAL_PLAYED_END) {
+                    const played_reward& reward = rewards[reward_type - TOTAL_PLAYED_START];
+                    if (itr->in >= reward.amount * 10000) {
+                        points = reward.points;
+                    }
+                }
+        }
+
+        game_player.modify(itr, _self, [&](auto &a) {
+            a.bonus_point += points;
+            a.bonus_claimed |= reward_mask;
+        });
+    }
+
+    struct chest_reward {
+        uint64_t amount;
+        uint64_t limit;
+    };
+
+    chest_reward chest_amount[] = {
+        {500, 100}, {5000, 500}, {10000, 1000}, {20000, 5000}, {100000, 20000}
+    };
+
+    void house::openchest(name player, uint8_t chest_type) {
+        require_auth(player);
+
+        uint8_t reward_type = CHEST_OPEN_START + chest_type;
+        uint64_t reward_mask = 1 << reward_type;
+        eosio_assert(reward_type <= CHEST_OPEN_END, "Invalid Chest type");
+        chest_reward reward_value = chest_amount[chest_type];
+        asset reward(reward_value.amount, EOS_SYMBOL);
+
+        player_record_index game_player(_self, _self.value);
+        auto itr = game_player.find(player.value);
+        eosio_assert(itr != game_player.end(), "Player does not exist");
+        eosio_assert(itr->bonus_point >= reward_value.limit, "Not enough bonus point");
+        eosio_assert((itr->bonus_claimed & reward_mask) == 0, "Reward already claimed");
+
+        capi_checksum256 seed_hash;
+        sha256((const char*)(player.value + tapos_block_num()), sizeof(uint64_t), &seed_hash);
+        random rng(seed_hash);
+
+        uint64_t roll = rng.generator(101);
+        reward += reward * roll / 100;
+
+        game_player.modify(itr, _self, [&](auto &a) {
+            a.out += reward.amount;
+            a.bonus_claimed |= reward_mask;
+        });
+
+        INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT,
+            {_self, name("active")}, {_self, player, reward, "Dapp365 Chest Reward"} );
+    }
+}

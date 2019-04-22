@@ -204,7 +204,7 @@ private: \
         eosio_assert(quantity == total, "bet amount does not match transfer amount"); \
     } \
 
-#define DEFINE_REVEAL_FUNCTION(NAME, DISPLAYNAME, RESULT) \
+#define DEFINE_REVEAL_FUNCTION(NAME, DISPLAYNAME, RESULT, REFERRAL_FACTOR) \
     void NAME::reveal(uint64_t game_id, capi_signature signature) { \
         auto idx = _games.get_index<name("byid")>(); \
         auto gm_pos = idx.find(game_id); \
@@ -269,7 +269,7 @@ private: \
                 largest_winner = itr; \
                 win_amount = current.payout.amount; \
             } \
-            make_payment(_self, name(itr->first), current.bet, current.payout, current.referer, \
+            make_payment(_self, name(itr->first), current.bet / REFERRAL_FACTOR, current.payout, current.referer, \
                          current.payout.amount >= current.bet.amount ? \
                         "[Dapp365] " #DISPLAYNAME " win!" : "[Dapp365] " #DISPLAYNAME " lose!" ); \
         } \

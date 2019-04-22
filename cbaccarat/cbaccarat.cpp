@@ -99,5 +99,5 @@ namespace godapp {
         require_recipient(_self);
     }
 
-    DEFINE_REVEAL_FUNCTION(cbaccarat, Baccarat Classic, cbaccarat_result)
+    DEFINE_REVEAL_FUNCTION(cbaccarat, Baccarat Classic, cbaccarat_result, 1)
 };
