@@ -8,7 +8,8 @@
 #define GLOBAL_ID_START         1001
 #define GLOBAL_ID_EVENT_ID      1001
 #define GLOBAL_ID_BET_ID        1002
-#define GLOBAL_ID_END           1003
+#define GLOBAL_ID_MAX_BET       1004
+#define GLOBAL_ID_END           1004
 
 namespace godapp {
 
@@ -21,37 +22,52 @@ namespace godapp {
     void event::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
             return;
-        };
-        asset total_bet = quantity;
-        auto bet_iter = _bet_amount.find(from.value);
-        if (bet_iter != _bet_amount.end()) {
-            total_bet += bet_iter->bet;
         }
-        table_upsert(_bet_amount, _self, from.value, [&](auto &a) { \
-            a.player = from;
-            a.bet = total_bet;
-        });
 
         param_reader reader(memo);
         auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() );
         auto bet_type = (uint8_t) atol( reader.next_param("Bet type cannot be empty").c_str() );
 
         auto game_itr = _events.find(game_id);
-
         eosio_assert(game_itr != _events.end(), "Game does not exist");
         eosio_assert(game_itr->active, "Game is no longer active");
         eosio_assert(game_itr->resolve_time > now(), "Game betting phase ended");
         eosio_assert(game_itr->rates.size() > bet_type, "Invalid bet type");
 
-        uint64_t next_bet_id = increment_global(_globals, GLOBAL_ID_BET_ID);
-        _active_bets.emplace(_self, [&](auto &a) {
-            a.id = next_bet_id;
-            a.game_id = game_id;
-            a.player = from;
-            a.bet_type = bet_type;
-            a.bet_asset = quantity;
-            a.time = now();
-        });
+        uint64_t max_bet = get_global(_globals, GLOBAL_ID_MAX_BET, 1000000);
+        auto idx = _active_bets.get_index<name("byplayer")>();
+        auto bet_itr = idx.find(from.value);
+        auto existing_itr = idx.end();
+
+        asset total_bet = quantity;
+
+        for (auto itr = bet_itr; itr != idx.end(); itr++) {
+            if (itr->player != from) {
+                break;
+            }
+            if (itr->game_id == game_id) {
+                total_bet += itr->bet_asset;
+                if (itr->bet_type == bet_type) {
+                    existing_itr = itr;
+                }
+            }
+        }
+        eosio_assert(total_bet.amount <= max_bet, "Bet amount exceed maximum");
+        if (existing_itr != idx.end()) {
+            idx.modify(existing_itr, _self, [&](auto &a) {
+                a.bet_asset += quantity;
+            });
+        } else {
+            uint64_t next_bet_id = increment_global(_globals, GLOBAL_ID_BET_ID);
+            _active_bets.emplace(_self, [&](auto &a) {
+                a.id = next_bet_id;
+                a.game_id = game_id;
+                a.player = from;
+                a.bet_type = bet_type;
+                a.bet_asset = quantity;
+                a.time = now();
+            });
+        }
 
         _events.modify(game_itr, _self, [&](auto &a) {
            a.bets[bet_type] += quantity.amount;
@@ -123,24 +139,10 @@ namespace godapp {
             uint8_t bet_type = itr->bet_type;
             asset bet_asset = itr->bet_asset;
             asset payout_amount = (bet_type == result) ? (bet_asset * win_rate / 100) : asset(0, EOS_SYMBOL);
-
-            auto result_itr = result_map.find(itr->player.value);
-            if (result_itr == result_map.end()) {
-                result_map[itr->player.value] = pay_result{bet_asset, payout_amount};
-            } else {
-                result_itr->second.bet += bet_asset;
-                result_itr->second.payout += payout_amount;
-            }
+            delayed_action(_self, bet_itr->player, name("payment"), make_tuple(id, bet_itr->player,
+                event_itr->event_name, result, bet_itr->bet_asset, payout_amount), 0);
             idx.erase(bet_itr);
         }
-
-        for (auto & itr : result_map) {
-            auto current = itr.second;
-            name player(itr.first);
-            delayed_action(_self, player, name("payment"),
-                make_tuple(id, player, event_itr->event_name, result, current.bet, current.payout), 0);
-        }
-
         _events.erase(event_itr);
     }
 

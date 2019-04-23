@@ -16,7 +16,6 @@ namespace godapp {
     public:
     using contract::contract;
 
-    DEFINE_BET_AMOUNT_TABLE
     DEFINE_GLOBAL_TABLE
 
     TABLE event_table {
@@ -43,9 +42,11 @@ namespace godapp {
 
         uint64_t primary_key() const { return id; };
         uint64_t bygameid() const { return game_id; };
+        uint64_t byplayer() const { return player.value; };
     };
-    typedef multi_index<name("bets"), active_bet,
-        indexed_by< name("bygameid"), const_mem_fun<active_bet, uint64_t, &active_bet::bygameid> >
+    typedef multi_index<name("activebets"), active_bet,
+        indexed_by< name("bygameid"), const_mem_fun<active_bet, uint64_t, &active_bet::bygameid> >,
+        indexed_by< name("byplayer"), const_mem_fun<active_bet, uint64_t, &active_bet::byplayer> >
     > active_bet_index;
     active_bet_index _active_bets;
 
@@ -53,8 +54,7 @@ namespace godapp {
         contract(receiver, code, ds),
         _events(_self, _self.value),
         _active_bets(_self, _self.value),
-        _globals(_self, _self.value),
-        _bet_amount(_self, _self.value){
+        _globals(_self, _self.value) {
     };
 
     ACTION init();
