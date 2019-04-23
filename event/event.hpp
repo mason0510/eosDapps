@@ -44,7 +44,7 @@ namespace godapp {
         uint64_t primary_key() const { return id; };
         uint64_t bygameid() const { return game_id; };
     };
-    typedef multi_index<name("activegame"), active_bet,
+    typedef multi_index<name("bets"), active_bet,
         indexed_by< name("bygameid"), const_mem_fun<active_bet, uint64_t, &active_bet::bygameid> >
     > active_bet_index;
     active_bet_index _active_bets;
@@ -67,5 +67,5 @@ namespace godapp {
     ACTION payment(uint64_t id, name player, const std::string& event_name, uint8_t result, asset bet, asset payout);
 };
 
-EOSIO_ABI_EX(event, (init)(transfer)(setglobal)(addevent)(setactive)(closeevent)(resolve))
+EOSIO_ABI_EX(event, (init)(transfer)(setglobal)(addevent)(setactive)(closeevent)(resolve)(payment))
 }

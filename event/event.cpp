@@ -91,7 +91,7 @@ namespace godapp {
         eosio_assert(itr != _events.end(), "Event does not exist");
         eosio_assert(result < itr->rates.size(), "Invalid event result");
 
-        uint64_t payout = itr->rates[result] * itr->bets[result];
+        uint64_t payout = itr->rates[result] * itr->bets[result] / 100;
         _events.modify(itr, _self, [&](auto &a) {
             a.active = false;
             a.payout = payout;
@@ -122,21 +122,21 @@ namespace godapp {
             }
             uint8_t bet_type = itr->bet_type;
             asset bet_asset = itr->bet_asset;
-            asset payout = (bet_type == result) ? win_rate * bet_asset : asset(0, EOS_SYMBOL);
+            asset payout_amount = (bet_type == result) ? (bet_asset * win_rate / 100) : asset(0, EOS_SYMBOL);
 
             auto result_itr = result_map.find(itr->player.value);
             if (result_itr == result_map.end()) {
-                result_map[itr->player.value] = pay_result{bet_asset, payout};
+                result_map[itr->player.value] = pay_result{bet_asset, payout_amount};
             } else {
                 result_itr->second.bet += bet_asset;
-                result_itr->second.payout += payout;
+                result_itr->second.payout += payout_amount;
             }
             idx.erase(bet_itr);
         }
 
-        for (auto itr = result_map.begin(); itr != result_map.end(); itr++) {
-            auto current = itr->second;
-            name player(itr->first);
+        for (auto & itr : result_map) {
+            auto current = itr.second;
+            name player(itr.first);
             delayed_action(_self, player, name("payment"),
                 make_tuple(id, player, event_itr->event_name, result, current.bet, current.payout), 0);
         }
