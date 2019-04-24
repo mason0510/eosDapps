@@ -164,6 +164,7 @@ namespace godapp {
         uint8_t red_type, black_type;
         uint8_t game_result, result;
         uint8_t lucky_rate;
+        uint8_t roundResult;
 
         redblack_result(random& random_gen) {
             vector<card_t> cards;
@@ -182,6 +183,7 @@ namespace godapp {
             }
             lucky_rate = get_lucky_strike_rate(max(red_type, black_type));
             result = (lucky_rate > 0) ? (game_result | BET_LUCKY_STRIKE) : game_result;
+            roundResult = result;
         }
 
         asset get_payout(const redblack::bet &bet_item) {

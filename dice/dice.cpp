@@ -89,7 +89,7 @@ namespace godapp {
         uint64_t roll_value = random_gen.generator(MAX_ROLL_NUM);
 
         asset payout;
-        asset bet_asset = activebets_itr->bet_asset;
+        asset bet_asset = activebets_itr->bet_asset;eo
         uint8_t bet_number = activebets_itr->bet_number;
         name player = activebets_itr->player;
 

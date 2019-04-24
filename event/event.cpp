@@ -120,7 +120,7 @@ namespace godapp {
         asset payout;
     };
 
-    void event::resolve(uint64_t id, const std::string& event_name, uint8_t result, uint64_t payout) {
+    void event::resolve(uint64_t id, const std::string& event_name, uint8_t result, uint64_t payout, const std::string& memo) {
         require_auth(_self);
 
         auto event_itr = _events.find(id);
@@ -147,6 +147,7 @@ namespace godapp {
         }
         _events.modify(event_itr, _self, [&](auto &a) {
             a.result = result;
+            a.memo = memo;
         });
     }
 

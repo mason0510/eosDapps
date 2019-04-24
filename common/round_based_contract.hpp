@@ -178,9 +178,10 @@ private: \
         } \
         asset total = asset(0, quantity.symbol); \
         while(reader.has_next()) { \
-            auto bet_type = (uint8_t) atoi( reader.next_param("Bet type cannot be empty!").c_str() ); \
-            auto amount = (uint64_t) atoi( reader.next_param("Bet amount cannot be empty!").c_str() ); \
+            uint8_t bet_type = (uint8_t) atoi( reader.next_param("Bet type cannot be empty!").c_str() ); \
+            uint64_t amount = (uint64_t) atoi( reader.next_param("Bet amount cannot be empty!").c_str() ); \
             asset bet_amount(amount, quantity.symbol); \
+            eosio_assert(bet_amount.amount > 0, "Bet amount must be positive"); \
             total += bet_amount; \
             uint64_t next_bet_id = increment_global(_globals, G_ID_BET_ID); \
             _bets.emplace(_self, [&](auto &a) { \

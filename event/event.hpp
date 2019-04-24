@@ -26,11 +26,12 @@ namespace godapp {
         std::vector<uint64_t> bets;
         uint64_t payout;
         uint8_t result;
+        std::string memo;
         bool active;
 
         uint64_t primary_key() const { return id; };
     };
-    typedef eosio::multi_index<name("eventtable"), event_table> event_index;
+    typedef eosio::multi_index<name("eventstable"), event_table> event_index;
     event_index _events;
 
     TABLE active_bet {
@@ -64,7 +65,7 @@ namespace godapp {
     ACTION setactive(uint64_t id, const std::string& event_name, const std::vector<uint64_t>& rates, uint64_t resolve_time, bool active);
     ACTION transfer(name from, name to, asset quantity, string memo);
     ACTION closeevent(uint64_t id, const std::string& event_name, uint8_t result);
-    ACTION resolve(uint64_t id, const std::string& event_name, uint8_t result, uint64_t payout);
+    ACTION resolve(uint64_t id, const std::string& event_name, uint8_t result, uint64_t payout, const std::string& memo);
     ACTION payment(uint64_t id, name player, const std::string& event_name, uint8_t result, asset bet, asset payout);
 };
 
