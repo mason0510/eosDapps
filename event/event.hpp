@@ -25,11 +25,12 @@ namespace godapp {
         std::vector<uint64_t> rates;
         std::vector<uint64_t> bets;
         uint64_t payout;
+        uint8_t result;
         bool active;
 
         uint64_t primary_key() const { return id; };
     };
-    typedef eosio::multi_index<name("events"), event_table> event_index;
+    typedef eosio::multi_index<name("eventtable"), event_table> event_index;
     event_index _events;
 
     TABLE active_bet {

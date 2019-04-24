@@ -85,6 +85,7 @@ namespace godapp {
             a.rates = rates;
             a.bets = std::vector<uint64_t>(rates.size());
             a.active = false;
+            a.result = 255;
         });
     }
 
@@ -124,6 +125,7 @@ namespace godapp {
 
         auto event_itr = _events.find(id);
         eosio_assert(event_itr != _events.end(), "Event does not exist");
+        eosio_assert(event_itr->result == 255, "Event already has a result");
         eosio_assert(result < event_itr->rates.size(), "Invalid event result");
         eosio_assert(event_itr->payout != payout , "Invalid event payout number");
         uint64_t win_rate = event_itr->rates[result];
@@ -143,7 +145,9 @@ namespace godapp {
                 event_itr->event_name, result, bet_itr->bet_asset, payout_amount), 0);
             idx.erase(bet_itr);
         }
-        _events.erase(event_itr);
+        _events.modify(event_itr, _self, [&](auto &a) {
+            a.result = result;
+        });
     }
 
     void event::payment(uint64_t id, name player, const std::string& event_name, uint8_t result, asset bet, asset payout) {
