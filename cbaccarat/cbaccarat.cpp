@@ -20,6 +20,7 @@ namespace godapp {
         uint8_t banker_point, player_point;
         uint8_t game_result;
         uint8_t result;
+        uint8_t roundResult;
 
         cbaccarat_result(random &random_gen) {
             draw_cards(banker_cards, banker_point, player_cards, player_point, random_gen);
@@ -36,6 +37,7 @@ namespace godapp {
             player_pair = card_value(player_cards[0]) == card_value(player_cards[1]);
 
             result = game_result | (banker_pair ? BET_BANKER_PAIR : 0) | (player_pair ? BET_PLAYER_PAIR : 0);
+            roundResult = result;
         }
 
         asset get_payout(const cbaccarat::bet &bet_item) {

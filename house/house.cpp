@@ -5,6 +5,7 @@
 #include "../common/param_reader.hpp"
 #include "../common/eosio.token.hpp"
 #include "../common/random.hpp"
+#include "../common/game_contracts.hpp"
 
 
 #define EVENT_LENGTH                86400
@@ -356,19 +357,16 @@ namespace godapp {
         auto itr = game_player.find(player.value);
         eosio_assert(itr != game_player.end(), "Player does not exist");
         eosio_assert(itr->bonus_point >= reward_value.limit, "Not enough bonus point");
-        eosio_assert((itr->bonus_claimed & reward_mask) == 0, "Reward already claimed");
+        eosio_assert((itr->chest_opened & reward_mask) == 0, "Reward already claimed");
 
-        capi_checksum256 seed_hash;
-        sha256((const char*)(player.value + tapos_block_num()), sizeof(uint64_t), &seed_hash);
-        random rng(seed_hash);
-
+        random rng(create_seed(0, player.value));
         uint64_t roll = rng.generator(101);
         reward += reward * roll / 100;
 
         game_player.modify(itr, _self, [&](auto &a) {
             a.out += reward.amount;
             a.bonus_payout += reward.amount;
-            a.bonus_claimed |= reward_mask;
+            a.chest_opened |= reward_mask;
         });
 
         INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT,

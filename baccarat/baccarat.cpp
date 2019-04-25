@@ -20,6 +20,7 @@ namespace godapp {
         uint8_t banker_point, player_point;
         const uint8_t*  payout_array;
         uint8_t result;
+        uint8_t roundResult;
 
         static constexpr uint8_t PAYOUT_MATRIX[5][5] = {
             {2,     0,      0,      0,      0}, // BANKER
@@ -49,7 +50,7 @@ namespace godapp {
             } else {
                 result = BET_TIE;
             }
-
+            roundResult = result;
             payout_array = PAYOUT_MATRIX[result - 1];
         }
 
