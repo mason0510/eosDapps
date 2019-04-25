@@ -38,7 +38,6 @@ namespace godapp {
             uint64_t primary_key() const { return player.value; };
         };
         typedef eosio::multi_index<"prizerecords"_n, betsprize_records> prize_index;prize_index _betprizes;
-    ACTION test(name account);
     ACTION transfer(name from, name to, asset quantity, string memo);
     ACTION reveal(uint8_t game_id,std::vector<uint8_t>& betIds,std::vector<name>& reward_names,std::vector<asset>& prize_amounts);
     centergame(name receiver, name code, datastream<const char *> ds);
