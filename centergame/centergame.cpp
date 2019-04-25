@@ -1,4 +1,3 @@
-#include "centergame.hpp"
 #include <vector>
 #include <string>
 #include <eosiolib/eosio.hpp>
@@ -6,103 +5,91 @@
 #include <eosiolib/time.hpp>
 #include <eosiolib/asset.hpp>
 #include <eosiolib/action.hpp>
+
+#include "centergame.hpp"
 #include "../common/utils.hpp"
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/game_contracts.hpp"
 
-#define GLOBAL_ID_START 0
+
+#define BET_START 1
+#define MAX_BET_AMOUNT 60000
 #define MIN_BETAMOUNT 1000
-#define MAX_BETAmount 60000
-#define BET_BEGINNUMBER 0
-#define GLOBAL_ID_END 1003
-#define GLOBAL_ID_BET 1001
-
-//"0,," 游戏id推荐人 dice
- #define DEFINE_SET_GLOBAL(NAME) \
-    void NAME::setglobal(uint64_t key, uint64_t value) { \
-        require_auth(_self); \
-        set_global(_globals, key, value); \
-    }
-
+#define EOS_SYMBOL symbol("EOS", 4)
+#define GLOBAL_ID_START         1001
+#define GLOBAL_ID_END         1004
+#define EOs_SYMBOL symbol(symbol_code("EOS"), 4)
 namespace godapp {
     centergame::centergame(name receiver, name code, datastream<const char *> ds) :
-    contract(receiver, code, ds),
-    _globals(_self, _self.value),
-    bet_records(_self, _self.value),
-    players(_self, _self.value) {
+        contract(receiver, code, ds),
+        _test_bets(_self, _self.value),
+        _bets(_self, _self.value),
+        _betprizes(_self, _self.value) {
+        }
+    
+     void centergame::test(name account) {
+           asset my_asset = asset(1000, EOS_SYMBOL);
+            uint64_t next_bet_id = _bets.available_primary_key();
+            _bets.emplace(get_self(), [&](auto &a) {
+            a.id = next_bet_id;
+            a.player= name(account);
+            a.game_id=1000;
+            a.bet_asset = my_asset;
+            a.referer= name("houseaccount");
+            a.self_content= "self_content";
+            a.time = now();
+            });
+     }
+
+   void centergame::transfer(name from, name to, asset quantity, string memo) {
+        if (!check_transfer(this, from, to, quantity, memo)) {
+            return;
+        };
+
+        if (!check_transfer(this, from, to, quantity, memo)) { 
+            return; 
+        }; 
+
+       transfer_to_house(_self, quantity, from, quantity.amount); 
+        print(from.to_string() );
+        print(to.to_string());
+        print("memo",memo.c_str() );
+
+        param_reader reader(memo); 
+        auto game_id = (uint64_t) atol( reader.next_param("Game ID cannot be empty!").c_str() ); 
+        auto referer = reader.get_referer(from); 
+        uint32_t timestamp = now(); 
+        asset total = asset(0, quantity.symbol); 
+        while(reader.has_next()) { 
+            string self_content  = reader.next_param().c_str(); 
+            uint64_t next_bet_id = _bets.available_primary_key();
+            _bets.emplace(_self, [&](auto &a) { 
+                a.id = next_bet_id; 
+                a.game_id = game_id; 
+                a.bet_asset=quantity;
+                a.player = from; 
+                a.referer = referer;
+                a.self_content = self_content; 
+                a.time = timestamp; 
+            }); 
+        } 
     }
 
-    void centergame::setglobal(uint64_t key, uint64_t value) { 
-        require_auth(_self); 
-        set_global(_globals, key, value);
-    }
-
-  void centergame::init() {
-          require_auth(HOUSE_ACCOUNT);
-          init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
- }
-  // 101,1,abc
-   void centergame::test(string memo) {
-     //get 1 2 3      101,1,abc
-   param_reader reader(memo);
-     uint8_t game_id = reader.next_param_i("game_id is missing");
-     uint8_t bet_id = reader.next_param_i("bet_id is missing");
-     uint8_t content = reader.next_param_i("content is missing");
-      std::printf("memo",game_id);
-      std::printf("bet_id",bet_id);
-      std::printf("content",content);
-    }
-
-void centergame::transfer(name from, name to, asset quantity, string memo) {
-     if (!check_transfer(this, from, to, quantity, memo, false)) {
-                  return;
-      }
-      eosio_assert(is_balance_within_range(quantity), "invalid quantity"); 
-       uint64_t amount = quantity.symbol == EOS_SYMBOL ? quantity.amount : 0;
-         //to house 最大支付额
-	    transfer_to_house(_self, quantity, from, quantity.amount);
-       //获取gameId
-       //get referer
-        param_reader reader(memo);
-       //gameid|refer|自定义内容
-      uint8_t game_id = reader.next_param_i("game_id is missing");
-      name referer = reader.get_referer(from);
-      freecontent = reader.next_param_i("freeContent is missing");
-      
-        uint64_t bet_id = increment_global(_globals, GLOBAL_ID_BET);
-
-        uint32_t _now = now();
-         eosio::time_point_sec time = eosio::time_point_sec( _now );
-          bet_records.emplace(_self, [&](auto &a) {
-          a.id = bet_id;
-          a.player= from;
-          a.game_id = game_id;
-          a.bet_amount = amount;
-          a.referer = referer;
-          a.free_content=freecontent;
-          a.time = time;});
-}
-
-//reward[]  rewardamount[] std::vector<int> 结算
-
-void centergame::reveal(uint8_t game_id,std::vector<uint8_t>& betIds,std::vector<name>& reward_names,std::vector<uint8_t>& prize_amounts) {
-   //get player info
-   for (int i=0; i<3; i++) {
-    uint8_t prize_amount= prize_amounts[i];
+void centergame::reveal(uint8_t game_id,std::vector<uint8_t>& betIds,std::vector<name>& reward_names,std::vector<asset>& prize_amounts) {
+   require_auth(_self);
+   for (int i=0; i<betIds.size(); i++) {
+    asset prize_amount= prize_amounts[i];
     uint8_t betid= betIds[i];
     name player=reward_names[i];
-    //record find bet_id  bet_amount refer
-    auto itr = bet_records.find(betid);
+     require_recipient( player );
+    auto itr = _bets.find(betid);
     action(
-            permission_level{get_self(),name("active")},
+            permission_level{_self,name("active")},
             name("houseaccount"),                     
             name("pay"),                         
-            std::make_tuple(game_id, player,itr->bet_amount,prize_amount, itr->referer)    
-            ).send();
-         
+            std::make_tuple(game_id, player,itr->bet_asset,prize_amount,"Dapp365 Game win!",itr->referer)    
+            ).send(); 
 }
 }
-
-
 }
