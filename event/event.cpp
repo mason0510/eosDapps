@@ -131,20 +131,31 @@ namespace godapp {
         uint64_t win_rate = event_itr->rates[result];
 
         auto idx = _active_bets.get_index<name("bygameid")>();
-        auto bet_itr = idx.find(id);
-
-        map<uint64_t, pay_result> result_map;
-        for (auto itr = bet_itr; itr != idx.end(); itr++) {
-            if (itr->game_id != id) {
+        map<name, pay_result> result_map;
+        for (auto bet_itr = idx.find(id); bet_itr != idx.end();) {
+            if (bet_itr->game_id != id) {
                 break;
             }
-            uint8_t bet_type = itr->bet_type;
-            asset bet_asset = itr->bet_asset;
+            uint8_t bet_type = bet_itr->bet_type;
+            asset bet_asset = bet_itr->bet_asset;
             asset payout_amount = (bet_type == result) ? (bet_asset * win_rate / 100) : asset(0, EOS_SYMBOL);
-            delayed_action(_self, bet_itr->player, name("payment"), make_tuple(id, bet_itr->player,
-                event_itr->event_name, result, bet_itr->bet_asset, payout_amount), 0);
-            idx.erase(bet_itr);
+
+            auto result_itr = result_map.find(bet_itr->player);
+            if (result_itr == result_map.end()) {
+                result_map[bet_itr->player] = pay_result{bet_asset, payout_amount};
+            } else {
+                result_itr->second.bet += bet_asset;
+                result_itr->second.payout += payout_amount;
+            }
+            bet_itr = idx.erase(bet_itr);
         }
+
+        for (auto & itr : result_map) {
+            auto current = itr.second;
+            delayed_action(_self, itr.first, name("payment"),
+                make_tuple(id, itr.first, event_itr->event_name, result, current.bet, current.payout), 0);
+        }
+
         _events.modify(event_itr, _self, [&](auto &a) {
             a.result = result;
             a.memo = memo;
@@ -157,7 +168,7 @@ namespace godapp {
 
         if (payout.amount > 0) {
             INLINE_ACTION_SENDER(eosio::token, transfer)(EOS_TOKEN_CONTRACT,
-                                                         {_self, name("active")}, {_self, player, payout, "Dapp365 Event Win!"} );
+                {_self, name("active")}, {_self, player, payout, "Dapp365 Event Win!"} );
         }
     }
 
