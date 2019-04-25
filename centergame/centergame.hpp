@@ -18,19 +18,6 @@ namespace godapp {
         std::vector<uint8_t> betIds;
         std::vector<name> reward_names;
 
-       TABLE test_bets {
-            uint64_t id;
-            name player;
-            name referer;
-            uint8_t bet_number;
-            asset bet_asset;
-            time_point_sec time;
-
-            uint64_t primary_key() const { return id; };
-        };
-        typedef eosio::multi_index<name("testbets"), test_bets> active_bet_index;
-        active_bet_index _test_bets;
-
       TABLE player_record {
             uint64_t id;
             name player;
@@ -56,5 +43,5 @@ namespace godapp {
     ACTION reveal(uint8_t game_id,std::vector<uint8_t>& betIds,std::vector<name>& reward_names,std::vector<asset>& prize_amounts);
     centergame(name receiver, name code, datastream<const char *> ds);
    };
-  EOSIO_ABI_EX(centergame, (test)(transfer)(reveal))
+  EOSIO_ABI_EX(centergame, (transfer)(reveal))
 }
