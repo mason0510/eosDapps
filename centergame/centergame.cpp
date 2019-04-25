@@ -47,10 +47,6 @@ namespace godapp {
             return;
         };
 
-        if (!check_transfer(this, from, to, quantity, memo)) { 
-            return; 
-        }; 
-
        transfer_to_house(_self, quantity, from, quantity.amount); 
         print(from.to_string() );
         print(to.to_string());
