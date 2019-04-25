@@ -11,13 +11,10 @@
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/game_contracts.hpp"
-
-
 #define BET_START 1
 #define MAX_BET_AMOUNT 60000
 #define MIN_BETAMOUNT 1000
 #define EOS_SYMBOL symbol("EOS", 4)
-#define EOs_SYMBOL symbol(symbol_code("EOS"), 4)
 namespace godapp {
     centergame::centergame(name receiver, name code, datastream<const char *> ds) :
         contract(receiver, code, ds),
