@@ -108,7 +108,7 @@ namespace godapp {
     };
 
 #ifdef DEFINE_DISPATCHER
-    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(pay)(setactive)(setrandkey)(cleartoken)
-    (claimreward)(setreferer)(openchest))
+    EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(updategame)(pay)(setactive)(setrandkey)(cleartoken)
+        (claimreward)(setreferer)(openchest))
 #endif
 }
