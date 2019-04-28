@@ -9,7 +9,8 @@
 
 
 #define EVENT_LENGTH                86400
-#define REFERRAL_BOUUS              5
+#define REFERRAL_BONUS              5
+#define DELAYED_PAYMENT_LIMIT       3000000
 
 namespace godapp {
     /**
@@ -192,42 +193,87 @@ namespace godapp {
         eosio_assert(token_iter != game_token.end(), "Token not supported");
 
         int64_t pay_amount = payout.amount;
-        if (payout.symbol == EOS_SYMBOL) {
-            if (referer.value == _self.value) {
-                referer = name(0);
-            }
-            auto player_iter = game_player.find(to.value);
-            if (player_iter != game_player.end()) {
-                if (player_iter->referer.value != 0) {
-                    referer = player_iter->referer;
+        if (token_iter->balance < pay_amount || (payout.symbol == EOS_SYMBOL && pay_amount > DELAYED_PAYMENT_LIMIT)) {
+            unpaid_index delayed = unpaid_index(_self, _self.value);
+            delayed.emplace(_self, [&](auto &a) {
+                a.id = delayed.available_primary_key();
+                a.game = game;
+                a.player = to;
+                a.bet = bet;
+                a.payout = payout;
+                a.referer = referer;
+            });
+        } else {
+            player_record_index game_player(_self, _self.value);
+            if (payout.symbol == EOS_SYMBOL) {
+                if (referer.value == _self.value) {
+                    referer = name(0);
                 }
-
-                asset refer_bonus(0, EOS_SYMBOL);
-                if (referer.value != 0) {
-                    refer_bonus = bet * REFERRAL_BOUUS / 1000;
-                    pay_amount += refer_bonus.amount;
-                    if (refer_bonus.amount > 0) {
-                        INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
+                auto player_iter = game_player.find(to.value);
+                if (player_iter != game_player.end()) {
+                    if (player_iter->referer.value != 0) {
+                        referer = player_iter->referer;
                     }
-                }
 
-                game_player.modify(player_iter, _self, [&](auto &a) {
-                    a.out += payout.amount;
-                    a.referer = referer;
-                    a.referer_payout += refer_bonus.amount;
-                });
+                    asset refer_bonus(0, EOS_SYMBOL);
+                    if (referer.value != 0) {
+                        refer_bonus = bet * REFERRAL_BONUS / 1000;
+                        pay_amount += refer_bonus.amount;
+                        if (refer_bonus.amount > 0) {
+                            INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
+                        }
+                    }
+
+                    game_player.modify(player_iter, _self, [&](auto &a) {
+                        a.out += payout.amount;
+                        a.referer = referer;
+                        a.referer_payout += refer_bonus.amount;
+                    });
+                }
+            }
+
+            game_token.modify(token_iter, _self, [&](auto &a) {
+                a.out += pay_amount;
+                a.balance -= pay_amount;
+            });
+
+            if (payout.amount > 0) {
+                INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, payout, memo} );
             }
         }
+    }
 
-        eosio_assert(token_iter->balance >= pay_amount, "token balance depleted");
-        game_token.modify(token_iter, _self, [&](auto &a) {
-            a.out += pay_amount;
-            a.balance -= pay_amount;
-        });
+    void house::settleunpaid(uint64_t id, bool pay) {
+        require_auth(_self);
 
-        if (payout.amount > 0) {
-            INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, to, payout, memo} );
+        unpaid_index delayed = unpaid_index(_self, _self.value);
+        auto itr = delayed.find(id);
+        eosio_assert(itr != delayed.end(), "Unpaid record does not exist");
+
+        if (pay) {
+            name player = itr->player;
+            asset payout = itr->payout;
+
+            player_record_index game_player(_self, _self.value);
+            auto player_iter = game_player.find(player.value);
+            game_player.modify(player_iter, _self, [&](auto &a) {
+                a.out += payout.amount;
+            });
+
+            token_index game_token(_self, itr->game.value);
+            auto token_iter = game_token.find(payout.symbol.raw());
+            eosio_assert(token_iter != game_token.end(), "Token not supported");
+            game_token.modify(token_iter, _self, [&](auto &a) {
+                a.out = payout.amount;
+                a.balance -= payout.amount;
+            });
+
+            if (payout.amount > 0) {
+                INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")},
+                    {_self, player, payout, "Dapp365 settle payment"} );
+            }
         }
+        delayed.erase(itr);
     }
 
     void house::updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max_payout, uint64_t balance) {

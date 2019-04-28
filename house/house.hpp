@@ -45,23 +45,6 @@ namespace godapp {
         };
         typedef multi_index<name("tokens"), token> token_index;
 
-        TABLE player {
-            name name;
-
-            uint64_t in;
-            uint64_t out;
-            uint64_t play_times;
-
-            uint32_t last_play_time;
-            uint64_t event_in;
-
-            uint64_t primary_key() const { return name.value; };
-            uint64_t byeventin()const {return event_in;}
-        };
-        typedef multi_index<name("players"), player,
-                indexed_by< name("byeventin"), const_mem_fun<player, uint64_t, &player::byeventin> >
-        > player_index;
-
         TABLE player_record {
             name player;
             uint64_t in;
@@ -89,6 +72,18 @@ namespace godapp {
             indexed_by< name("byreferer"), const_mem_fun<player_record, uint64_t, &player_record::byreferer> >
         > player_record_index;
 
+        TABLE delayed_payment {
+            uint64_t id;
+            name game;
+            name player;
+            asset bet;
+            asset payout;
+            name referer;
+
+            uint64_t primary_key() const {return id;};
+        };
+        typedef multi_index<name("unpaid"), delayed_payment> unpaid_index;
+
         house(name receiver, name code, datastream<const char *> ds): contract(receiver, code, ds) {
         }
 
@@ -101,14 +96,14 @@ namespace godapp {
         ACTION updatetoken(name game, symbol token, name contract, uint64_t min, uint64_t max, uint64_t balance);
         ACTION cleartoken(name game);
 
-
         ACTION setreferer(name player, name referer);
         ACTION claimreward(name player, uint8_t reward_type);
         ACTION openchest(name player, uint8_t chest_type);
+        ACTION settleunpaid(uint64_t id, bool pay);
     };
 
 #ifdef DEFINE_DISPATCHER
     EOSIO_ABI_EX(house, (transfer)(addgame)(updatetoken)(updategame)(pay)(setactive)(setrandkey)(cleartoken)
-        (claimreward)(setreferer)(openchest))
+        (claimreward)(setreferer)(openchest)(settleunpaid))
 #endif
 }
