@@ -12,12 +12,23 @@
 #include "../common/param_reader.hpp"
 #include "../common/game_contracts.hpp"
 
+#define GLOBAL_ID_START         1001
+#define GLOBAL_ID_BET_ID        1001
+#define GLOBAL_ID_END           1001
+
 namespace godapp {
     centergame::centergame(name receiver, name code, datastream<const char *> ds) :
         contract(receiver, code, ds),
+        _globals(_self, _self.value),
         _bets(_self, _self.value) {
     }
 
+    DEFINE_SET_GLOBAL(centergame)
+
+    void centergame::init() {
+        require_auth(HOUSE_ACCOUNT);
+        init_globals(_globals, GLOBAL_ID_START, GLOBAL_ID_END);
+    }
 
     void centergame::transfer(name from, name to, asset quantity, string memo) {
         if (!check_transfer(this, from, to, quantity, memo)) {
@@ -31,7 +42,7 @@ namespace godapp {
         auto message = reader.rest();
 
         uint32_t timestamp = now();
-        uint64_t next_bet_id = _bets.available_primary_key();
+        uint64_t next_bet_id = increment_global(_globals, GLOBAL_ID_BET_ID);
         _bets.emplace(_self, [&](auto &a) {
             a.id = next_bet_id;
             a.game_id = game_id;
