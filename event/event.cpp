@@ -127,7 +127,7 @@ namespace godapp {
         eosio_assert(event_itr != _events.end(), "Event does not exist");
         eosio_assert(event_itr->result == 255, "Event already has a result");
         eosio_assert(result < event_itr->rates.size(), "Invalid event result");
-        eosio_assert(event_itr->payout != payout , "Invalid event payout number");
+        eosio_assert(event_itr->payout == payout , "Invalid event payout number");
         uint64_t win_rate = event_itr->rates[result];
 
         auto idx = _active_bets.get_index<name("bygameid")>();
