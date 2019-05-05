@@ -131,14 +131,16 @@ namespace godapp {
         uint64_t win_rate = event_itr->rates[result];
 
         auto idx = _active_bets.get_index<name("bygameid")>();
+        asset total_payout(0, EOS_SYMBOL);
         map<name, pay_result> result_map;
-        for (auto bet_itr = idx.find(id); bet_itr != idx.end();) {
+        for (auto bet_itr = idx.find(id); bet_itr != idx.end(); bet_itr++) {
             if (bet_itr->game_id != id) {
                 break;
             }
             uint8_t bet_type = bet_itr->bet_type;
             asset bet_asset = bet_itr->bet_asset;
             asset payout_amount = (bet_type == result) ? (bet_asset * win_rate / 100) : asset(0, EOS_SYMBOL);
+            total_payout += payout_amount;
 
             auto result_itr = result_map.find(bet_itr->player);
             if (result_itr == result_map.end()) {
@@ -147,8 +149,8 @@ namespace godapp {
                 result_itr->second.bet += bet_asset;
                 result_itr->second.payout += payout_amount;
             }
-            bet_itr = idx.erase(bet_itr);
         }
+        eosio_assert(payout == total_payout.amount, "Amount does not match");
 
         for (auto & itr : result_map) {
             auto current = itr.second;
