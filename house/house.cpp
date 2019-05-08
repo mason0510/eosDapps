@@ -193,7 +193,7 @@ namespace godapp {
         eosio_assert(token_iter != game_token.end(), "Token not supported");
 
         int64_t pay_amount = payout.amount;
-        if (token_iter->balance < pay_amount || (payout.symbol == EOS_SYMBOL && pay_amount > DELAYED_PAYMENT_LIMIT)) {
+        if (token_iter->balance < pay_amount || (payout.symbol == EOS_SYMBOL && pay_amount >= DELAYED_PAYMENT_LIMIT)) {
             unpaid_index delayed = unpaid_index(_self, _self.value);
             delayed.emplace(_self, [&](auto &a) {
                 a.id = delayed.available_primary_key();
