@@ -85,7 +85,9 @@ namespace godapp {
             uint8_t bet_type = bet_item.bet_type;
             uint64_t pay_rate = 0;
             if (bet_type <= 18) {
-                pay_rate = SUM_PAY_RATE_ARRAY[bet_type];
+                if (bet_type == sum) {
+                    pay_rate = SUM_PAY_RATE_ARRAY[bet_type];
+                }
             } else {
                 switch (bet_type) {
                     case BET_LARGE:
