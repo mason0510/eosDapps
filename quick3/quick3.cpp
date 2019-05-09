@@ -122,7 +122,7 @@ namespace godapp {
         }
 
         void set_receipt(quick3& contract, uint64_t game_id, capi_checksum256 seed) {
-            SEND_INLINE_ACTION(contract, receipt, {contract.get_self(), name("active")}, {game_id, seed, dices});
+            SEND_INLINE_ACTION(contract, receipt, {contract.get_self(), name("active")}, {game_id, seed, dices})
         }
     };
 

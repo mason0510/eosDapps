@@ -258,5 +258,5 @@ namespace godapp {
         require_recipient(_self);
     }
 
-    DEFINE_REVEAL_FUNCTION(bullfight, Bull Fight, bullfight_result, 5)
+    DEFINE_REVEAL_FUNCTION(bullfight, Bull Fight, bullfight_result, 1)
 };

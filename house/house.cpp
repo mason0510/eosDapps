@@ -10,7 +10,9 @@
 
 #define EVENT_LENGTH                86400
 #define REFERRAL_BONUS              5
-#define DELAYED_PAYMENT_LIMIT       3000000
+#define DELAYED_PAYMENT_LIMIT       1000000
+
+#define BULLFIGHT_ID                9
 
 namespace godapp {
     /**
@@ -184,7 +186,7 @@ namespace godapp {
 
         // check that the game is indeed registered so we wouldn't pay for an outside contract
         game_index games(_self, _self.value);
-        games.get(game.value, "Game does not exist");
+        struct game game_value = games.get(game.value, "Game does not exist");
 
         player_record_index game_player(_self, _self.value);
         token_index game_token(_self, game.value);
@@ -193,7 +195,7 @@ namespace godapp {
         eosio_assert(token_iter != game_token.end(), "Token not supported");
 
         int64_t pay_amount = payout.amount;
-        if (token_iter->balance < pay_amount || (payout.symbol == EOS_SYMBOL && pay_amount >= DELAYED_PAYMENT_LIMIT)) {
+        if (token_iter->balance < pay_amount || (payout.symbol == EOS_SYMBOL && (pay_amount - bet.amount) >= DELAYED_PAYMENT_LIMIT)) {
             unpaid_index delayed = unpaid_index(_self, _self.value);
             delayed.emplace(_self, [&](auto &a) {
                 a.id = delayed.available_primary_key();
@@ -218,6 +220,9 @@ namespace godapp {
                     asset refer_bonus(0, EOS_SYMBOL);
                     if (referer.value != 0) {
                         refer_bonus = bet * REFERRAL_BONUS / 1000;
+                        if (game_value.id == BULLFIGHT_ID) {
+                            refer_bonus /= 5;
+                        }
                         pay_amount += refer_bonus.amount;
                         if (refer_bonus.amount > 0) {
                             INLINE_ACTION_SENDER(eosio::token, transfer)(token_iter->contract, {_self, name("active")}, {_self, referer, refer_bonus, "Dapp365 Referral Bonus"} );
