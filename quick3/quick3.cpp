@@ -78,6 +78,7 @@ namespace godapp {
                 if (value != last + 1) {
                     straight = false;
                 }
+                last = value;
             }
         }
 
