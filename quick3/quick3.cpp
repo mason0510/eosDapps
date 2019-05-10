@@ -12,8 +12,8 @@
 #define G_ID_HISTORY_ID             104
 #define G_ID_END                    104
 
-#define GAME_LENGTH                 45
-#define GAME_RESOLVE_TIME           15
+#define GAME_LENGTH                 60
+#define GAME_RESOLVE_TIME           12
 
 #define RESULT_SIZE                 100
 #define HISTORY_SIZE                50
