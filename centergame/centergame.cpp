@@ -54,14 +54,15 @@ namespace godapp {
         });
     }
 
-    void centergame::reveal(uint8_t game_id, const std::string& message, const std::vector<uint8_t>& bet_ids,
+    void centergame::reveal(uint64_t game_id, const std::string& message, const std::vector<uint64_t>& bet_ids,
         const std::vector<asset>& prize_amounts) {
         require_auth(_self);
         for (int i=0; i<bet_ids.size(); i++) {
             asset prize_amount = prize_amounts[i];
-            uint8_t betId = bet_ids[i];
+            uint64_t betId = bet_ids[i];
             auto itr = _bets.find(betId);
 
+            eosio_assert(itr != _bets.end(), "Invalid bet Id");
             name player = itr->player;
             delayed_action(_self, player, name("payment"),
                 make_tuple(game_id, player, itr->referer, message, itr->bet_asset, prize_amount), 0);
