@@ -54,26 +54,32 @@ namespace godapp {
         });
     }
 
-    void centergame::reveal(uint8_t game_id, const std::string& message, const std::vector<uint8_t>& bet_ids,
+
+    void centergame::reveal(uint64_t game_id, const std::string& message, const std::vector<uint64_t>& bet_ids,
         const std::vector<asset>& prize_amounts) {
         require_auth(_self);
         for (int i=0; i<bet_ids.size(); i++) {
             asset prize_amount = prize_amounts[i];
-            uint8_t betId = bet_ids[i];
+            uint64_t betId = bet_ids[i];
             auto itr = _bets.find(betId);
-
             name player = itr->player;
             delayed_action(_self, player, name("payment"),
                 make_tuple(game_id, player, itr->referer, message, itr->bet_asset, prize_amount), 0);
-
             _bets.erase(itr);
+        }
+    }
+
+        void centergame::clear() {
+        require_auth(_self);
+        for (auto iter = _bets.begin(); iter != _bets.end();) {
+                iter = _bets.erase(iter);
         }
     }
 
     void centergame::payment(uint64_t id, name player, name referer, const std::string& message, asset bet, asset payout) {
         require_auth(_self);
         require_recipient(player);
-
         make_payment(_self, player, bet, payout, referer, message);
     }
+
 }
