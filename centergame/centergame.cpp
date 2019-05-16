@@ -67,7 +67,7 @@ namespace godapp {
             uint64_t betId = bet_ids[i];
             auto itr = _bets.find(betId);
             eosio_assert(itr != _bets.end(), "Invalid bet Id");
-            pay_map.add_payment(itr->player, itr->bet_asset, asset(prize_amount, itr->bet_asset.symbol), empty_referer);
+            pay_map.add_payment(itr->player, itr->bet_asset, prize_amount, empty_referer);
             _bets.erase(itr);
         }
 
