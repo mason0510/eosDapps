@@ -37,8 +37,8 @@ namespace godapp {
         ACTION reveal(uint64_t game_id, const std::string& message, const std::vector<uint64_t>& bet_ids,
             const std::vector<asset>& prize_amounts);
         ACTION payment(uint64_t id, name player, name referer, const std::string& message, asset bet, asset payout);
-
+        ACTION clear();
         centergame(name receiver, name code, datastream<const char *> ds);
    };
-  EOSIO_ABI_EX(centergame, (transfer)(setglobal)(reveal)(payment)(init))
+  EOSIO_ABI_EX(centergame, (transfer)(setglobal)(reveal)(payment)(init)(clear))
 }
