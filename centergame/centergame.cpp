@@ -11,6 +11,7 @@
 #include "../common/tables.hpp"
 #include "../common/param_reader.hpp"
 #include "../common/game_contracts.hpp"
+#include "../common/payment_map.hpp"
 
 #define GLOBAL_ID_START         1001
 #define GLOBAL_ID_BET_ID        1001
@@ -57,22 +58,32 @@ namespace godapp {
     void centergame::reveal(uint64_t game_id, const std::string& message, const std::vector<uint64_t>& bet_ids,
         const std::vector<asset>& prize_amounts) {
         require_auth(_self);
+
+        payment_map pay_map;
+        name empty_referer;
+
         for (int i=0; i<bet_ids.size(); i++) {
             asset prize_amount = prize_amounts[i];
             uint64_t betId = bet_ids[i];
             auto itr = _bets.find(betId);
             eosio_assert(itr != _bets.end(), "Invalid bet Id");
-            name player = itr->player;
-            delayed_action(_self, player, name("payment"),
-                make_tuple(game_id, player, itr->referer, message, itr->bet_asset, prize_amount), 0);
+            pay_map.add_payment(itr->player, itr->bet_asset, asset(prize_amount, itr->bet_asset.symbol), empty_referer);
             _bets.erase(itr);
+        }
+
+        for (auto& iter: pay_map.result_map) {
+            name player(iter.first);
+            const payment_map::pay_result& result = iter.second;
+            delayed_action(_self, player, name("payment"), make_tuple(game_id, player,
+                result.referer, message, result.bet, result.payout), 0);
         }
     }
 
-        void centergame::clear() {
+
+    void centergame::clear() {
         require_auth(_self);
         for (auto iter = _bets.begin(); iter != _bets.end();) {
-                iter = _bets.erase(iter);
+            iter = _bets.erase(iter);
         }
     }
 

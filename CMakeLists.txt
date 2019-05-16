@@ -10,7 +10,7 @@ include_directories(${EOSIO_CDT_INSTALL_DIR}/include/libcxx)
 
 set(COMMON_FILES common/random.hpp common/constants.hpp common/eosio.token.hpp common/utils.hpp
         common/tables.hpp common/contracts.hpp common/cards.hpp common/param_reader.hpp common/round_based_contract.hpp
-        common/game_contracts.hpp baccarat/baccarat_common.hpp baccarat/baccarat_common.hpp)
+        common/game_contracts.hpp baccarat/baccarat_common.hpp baccarat/baccarat_common.hpp common/payment_map.hpp)
 set(HPP_FILES dice/dice.hpp blackjack/blackjack.hpp baccarat/baccarat.hpp redblack/redblack.hpp house/house.hpp roulette/roulette.hpp
         cbaccarat/cbaccarat.hpp scratch/scratch.hpp slots/slots.hpp bullfight/bullfight.hpp quick3/quick3.hpp event/event.hpp
         centergame/centergame.hpp)
